@@ -39,6 +39,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/sb"
           tar -xzf "$RUNNER_TEMP/sb.tgz" -C "$RUNNER_TEMP/sb" --strip-components=1
           echo "$RUNNER_TEMP/sb" >> "$GITHUB_PATH"
+          # the root helper uses a fixed PATH, so it must find sing-box in /usr/local/bin
+          sudo ln -sf "$RUNNER_TEMP/sb/sing-box" /usr/local/bin/sing-box
 
       - name: sing-box version
         run: sing-box version
