@@ -111,7 +111,7 @@ export async function call(name, p = {}) {
   await sleep(60);
   switch (name) {
     case 'sys.info':
-      return { appVersion: '0.1.0', user: 'demo', home: '/home/demo', dataDir: '/home/demo/.local/share/singbox-gui', singbox: { path: '/usr/bin/sing-box', version: '1.14.3' }, helper: '/usr/lib/singbox-gui/helper', helperInstalled: true, pkexec: true, unitFound: service.loaded, systemd: true };
+      return { appVersion: '0.2.0', user: 'demo', home: '/home/demo', dataDir: '/home/demo/.local/share/singbox-gui', singbox: { path: '/usr/bin/sing-box', version: '1.14.3' }, helper: '/usr/lib/singbox-gui/helper', helperInstalled: true, pkexec: true, unitFound: service.loaded, systemd: true };
     case 'svc.status':
       return statusObj();
     case 'svc.do': {

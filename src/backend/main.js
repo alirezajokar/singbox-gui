@@ -6,7 +6,7 @@
 
 import { run, exists, firstExisting, errorCode, LONG_TIMEOUT } from './exec.js';
 
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.2.0';
 const HELPER_INSTALLED = '/usr/lib/singbox-gui/helper';
 const POLKIT_RULE = '/etc/polkit-1/rules.d/49-singbox-gui.rules';
 const MAX_BACKUPS = 40;

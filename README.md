@@ -52,7 +52,7 @@ sudo apt install ./singbox-gui_*_amd64.deb
 
 ```bash
 # انتشار نسخه‌ی جدید: نسخه را در tinyjs.json، package.json و src/backend/main.js یکی کنید، سپس یکی از این دو:
-git tag v0.1.0 && git push origin v0.1.0
+git tag vX.Y.Z && git push origin vX.Y.Z
 # یا در GitHub: Actions ← build ← Run workflow (روی main) و گزینه‌ی release را بزنید
 ```
 

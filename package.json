@@ -1,6 +1,6 @@
 {
   "name": "singbox-gui",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "A small, friendly desktop app (TinyJS) to manage a sing-box service and its configuration.",
   "license": "MIT",
