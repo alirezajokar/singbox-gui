@@ -9,11 +9,12 @@ import { routing } from './pages/routing.js';
 import { dnsPage } from './pages/dns.js';
 import { outboundsPage } from './pages/outbounds.js';
 import { general } from './pages/general.js';
+import { logs } from './pages/logs.js';
 import { advanced } from './pages/advanced.js';
 import { settings } from './pages/settings.js';
 
-const PAGES = [dashboard, routing, dnsPage, outboundsPage, general, advanced, settings];
-const NAV = [dashboard, routing, dnsPage, outboundsPage, general, 'sep', advanced, settings];
+const PAGES = [dashboard, routing, dnsPage, outboundsPage, general, logs, advanced, settings];
+const NAV = [dashboard, routing, dnsPage, outboundsPage, general, logs, 'sep', advanced, settings];
 
 let current = null;
 let cleanup = null;

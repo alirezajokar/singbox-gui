@@ -6,7 +6,8 @@
 
 به‌جای باز کردن دستی فایل JSON و تایپ `sudo systemctl restart sing-box`، همه‌چیز را از یک پنجره انجام می‌دهید:
 
-- **روشن/خاموش کردن سرویس** با یک دکمه‌ی بزرگ؛ وضعیت، مدت اجرا، مصرف حافظه، لاگ زنده و «اجرا هنگام بوت».
+- **روشن/خاموش کردن سرویس** با یک دکمه‌ی بزرگ؛ وضعیت، مدت اجرا، مصرف حافظه و «اجرا هنگام بوت».
+- **صفحه‌ی لاگ‌ها**: لاگ زنده‌ی سرویس با فیلتر سطح (همه / هشدار و خطا / فقط خطا)، جستجو، تعداد خط و به‌روزرسانی خودکار.
 - **مسیریابی (Routing)**: قانون‌ها را مثل یک لیست ساده می‌سازید — *اگر* دامنه/TLD/آی‌پی/پورت/پروتکل/لیست آماده … *آنگاه* مستقیم / پروکسی / مسدود. با کشیدن مرتب می‌کنید، هر قانون را جدا فعال/غیرفعال می‌کنید.
   - الگوهای آماده: «دامنه‌های `.ir` مستقیم»، «شبکه‌ی محلی مستقیم»، «ایران (geosite/geoip)»، «بستن تبلیغات»، «QUIC بسته»، «هوش مصنوعی با پروکسی» و…
   - چسباندن یک فهرست مخلوط (دامنه، TLD، آی‌پی، `keyword:`…) و تشخیص خودکار نوع هر خط.
@@ -18,6 +19,7 @@
 
 ![خانه](docs/screenshots/dashboard.png)
 ![مسیریابی](docs/screenshots/routing.png)
+![لاگ‌ها](docs/screenshots/logs.png)
 
 ## نصب
 
@@ -89,7 +91,7 @@ test/             واحد، یکپارچه با sing-box، e2e مرورگر، s
 ## English
 
 **Singbox GUI** is a small desktop app (TinyJS, ~10 MB, no Electron) that manages a **sing-box** service on Linux:
-one big power button (start/stop/restart/enable-at-boot, live logs), a friendly **routing rules** editor
+one big power button (start/stop/restart/enable-at-boot), a Logs page with level filter and search, a friendly **routing rules** editor
 (domains, TLDs, IPs, ports, protocols, geosite/geoip rule-sets → direct / proxy / block, drag to reorder, per-rule on/off, ready-made templates),
 **DNS** servers and rules, **outbounds** (paste `vless://`, `vmess://`, `trojan://`, `ss://`, `hysteria2://`, `tuic://` links or a base64 subscription),
 validation with `sing-box check` before every save, automatic backups, and a raw JSON editor for everything else (unknown fields are always preserved).

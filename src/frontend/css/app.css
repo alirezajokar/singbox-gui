@@ -307,6 +307,7 @@ input.ltr, select.ltr, textarea.ltr, .input.ltr, .select.ltr { direction: ltr; t
 @keyframes breathe { 50% { box-shadow: 0 0 0 10px var(--tint-ok), 0 0 60px rgba(52, 211, 153, .6); } }
 
 .logs { background: var(--code-bg); border: 1px solid var(--border); border-radius: var(--radius-sm); height: 280px; overflow: auto; padding: 10px 12px; font-family: var(--mono); font-size: 12px; line-height: 1.7; direction: ltr; text-align: left; }
+.logs.tall { height: calc(100vh - 290px); min-height: 320px; }
 .logs .ln { white-space: pre-wrap; word-break: break-all; }
 .logs .ts { color: var(--muted); margin-inline-end: 8px; }
 .logs .lv-ERROR, .logs .lv-FATAL, .logs .lv-PANIC { color: var(--danger); }

@@ -70,6 +70,32 @@ await scenario('dashboard shows the running service', async (page, open) => {
   assert.match(await page.textContent('.hero-text h2'), /running/);
 });
 
+await scenario('the dashboard no longer shows logs; they live on their own page', async (page, open) => {
+  await open('dashboard');
+  await page.waitForSelector('.hero.on');
+  assert.equal(await page.locator('.logs').count(), 0, 'no log box on the dashboard');
+  await page.click('.hero-actions button:has-text("View logs")');
+  await page.waitForSelector('.logs.tall .ln.lv-INFO');
+  assert.match(await page.textContent('.topbar h1'), /Logs/);
+  assert.ok((await page.locator('.logs .ln').count()) >= 5);
+});
+
+await scenario('logs page: level filter and search', async (page, open) => {
+  await open('logs');
+  await page.waitForSelector('.logs .ln.lv-INFO');
+  const total = await page.locator('.logs .ln').count();
+  await page.click('.segmented button:has-text("Errors only")');
+  assert.equal(await page.locator('.logs .ln').count(), 1);
+  assert.equal(await page.locator('.logs .ln.lv-ERROR').count(), 1);
+  await page.click('.segmented button:has-text("All")');
+  assert.equal(await page.locator('.logs .ln').count(), total);
+  await page.fill('input[placeholder="Search the log…"]', 'digikala');
+  assert.equal(await page.locator('.logs .ln').count(), 1);
+  await page.fill('input[placeholder="Search the log…"]', 'zzz-nothing');
+  assert.match(await page.textContent('.logs'), /No line matches/);
+  assert.match(await page.textContent('.card-body'), /0 of \d+ lines/);
+});
+
 await scenario('power button stops and starts the service', async (page, open) => {
   await open('dashboard');
   await page.click('.power');
@@ -258,7 +284,7 @@ await scenario('settings: switching language flips direction', async (page, open
 });
 
 await scenario('persian UI renders without errors on every page', async (page, open) => {
-  for (const p of ['dashboard', 'routing', 'dns', 'outbounds', 'general', 'advanced', 'settings']) {
+  for (const p of ['dashboard', 'routing', 'dns', 'outbounds', 'general', 'logs', 'advanced', 'settings']) {
     await open(p);
     assert.ok((await page.textContent('.topbar h1')).length > 0);
   }

@@ -6,7 +6,7 @@ import { CONDITIONS } from '../src/frontend/js/rules.js';
 import { ROUTE_TEMPLATES } from '../src/frontend/js/presets.js';
 import { DNS_TYPES } from '../src/frontend/js/dns.js';
 
-const PAGES = ['dashboard', 'routing', 'dns', 'outbounds', 'general', 'advanced', 'settings'];
+const PAGES = ['dashboard', 'routing', 'dns', 'outbounds', 'general', 'logs', 'advanced', 'settings'];
 
 // keys built at run time: t(`prefix.${x}`)
 const dynamic = [

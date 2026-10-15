@@ -28,11 +28,12 @@ await new Promise((r) => server.on('listening', r));
 const base = `http://127.0.0.1:${server.address().port}/index.html`;
 
 const shots = [
-  { name: 'dashboard', page: 'dashboard', h: 820 },
+  { name: 'dashboard', page: 'dashboard', h: 700 },
   { name: 'routing', page: 'routing', h: 820 },
   { name: 'rule-editor', page: 'routing', h: 900, steps: [{ click: '.item:nth-child(7) .body' }] },
   { name: 'dns', page: 'dns', h: 1120 },
   { name: 'outbounds', page: 'outbounds', h: 820 },
+  { name: 'logs', page: 'logs', h: 820 },
   { name: 'import-links', page: 'outbounds', h: 760, steps: [{ click: '.btn-primary' }, { fill: ['textarea', 'vless://11111111-2222-3333-4444-555555555555@de.example.com:443?security=reality&sni=www.microsoft.com&fp=chrome&pbk=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&sid=ab12&type=grpc&serviceName=svc#Germany\ntrojan://secret@tr.example.com:443#Turkey'] }] },
   { name: 'dashboard-light-en', page: 'dashboard', h: 820, lang: 'en', theme: 'light', scheme: 'light' },
   { name: 'routing-en', page: 'routing', h: 820, lang: 'en' },
