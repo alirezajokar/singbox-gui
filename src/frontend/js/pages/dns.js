@@ -1,13 +1,13 @@
 // DNS: servers (tag / type / address), a few global switches, and DNS rules.
 
-import { h, icon, button, notice, select, toggle, mount, empty, modal, field, input, pill, toast, clear } from '../dom.js';
+import { h, icon, button, notice, select, toggle, mount, empty, modal, field, input, pill, toast, clear, settingRow } from '../dom.js';
 import { t } from '../i18n.js';
 import * as store from '../store.js';
 import { dnsServers, getRules, outboundChoices, renameTag, removeDnsServer, usages, ensureDns, ensureRoute } from '../config.js';
 import { DNS_TYPES, DEFAULT_PORTS, DNS_PRESETS, serverToModel, modelToServer, emptyServerModel, presetToModel, describeServer, needsServer, hasPath, hostNeedsResolver } from '../dns.js';
 import { ruleToModel, modelToRule } from '../rules.js';
 import { ruleRow, sortable, openRuleEditor, newRuleModel } from '../ui/rules-ui.js';
-import { confirmDelete } from '../ui/actions.js';
+import { confirmDelete, deleteWithUndo } from '../ui/actions.js';
 import { clone, uniqueTag } from '../util.js';
 
 const CTX = { kind: 'dns' };
@@ -38,9 +38,6 @@ export const dnsPage = {
       const resolver = cfg.route && cfg.route.default_domain_resolver;
       const resolverTag = typeof resolver === 'string' ? resolver : resolver && resolver.server ? resolver.server : '';
 
-      const row = (title, hint, control) =>
-        h('div', { class: 'setting' }, h('div', { class: 'txt' }, h('b', null, title), h('span', null, hint)), h('div', { class: 'ctl' }, control));
-
       const finalSel = select({ options: [{ value: '', label: t('dns.first-server') }, ...tags.map((x) => ({ value: x, label: x }))], value: dns.final || '', onChange: (v) => store.mutate((d) => { const o = ensureDns(d); if (v) o.final = v; else delete o.final; }) });
       const stratSel = select({ options: STRATEGIES.map((s) => ({ value: s, label: s ? t(`dns.strategy.${s}`) : t('dns.strategy.default') })), value: dns.strategy || '', onChange: (v) => store.mutate((d) => { const o = ensureDns(d); if (v) o.strategy = v; else delete o.strategy; }) });
       const resSel = select({ options: [{ value: '', label: t('dns.resolver-none') }, ...tags.map((x) => ({ value: x, label: x }))], value: resolverTag, onChange: (v) => store.mutate((d) => { const r = ensureRoute(d); if (v) r.default_domain_resolver = v; else delete r.default_domain_resolver; }) });
@@ -55,11 +52,11 @@ export const dnsPage = {
         h(
           'div',
           { class: 'card-body' },
-          row(t('dns.final'), t('dns.final-hint'), finalSel),
-          row(t('dns.strategy'), t('dns.strategy-hint'), stratSel),
-          row(t('dns.resolver'), t('dns.resolver-hint'), resSel),
-          h('div', { class: 'setting' }, h('div', { class: 'txt' }, h('b', null, t('dns.cache')), h('span', null, t('dns.cache-hint'))), h('div', { class: 'ctl auto' }, cache)),
-          h('div', { class: 'setting' }, h('div', { class: 'txt' }, h('b', null, t('dns.reverse')), h('span', null, t('dns.reverse-hint'))), h('div', { class: 'ctl auto' }, rev)),
+          settingRow(t('dns.final'), t('dns.final-hint'), finalSel),
+          settingRow(t('dns.strategy'), t('dns.strategy-hint'), stratSel),
+          settingRow(t('dns.resolver'), t('dns.resolver-hint'), resSel),
+          settingRow(t('dns.cache'), t('dns.cache-hint'), cache, true),
+          settingRow(t('dns.reverse'), t('dns.reverse-hint'), rev, true),
         ),
       );
     }
@@ -105,7 +102,7 @@ export const dnsPage = {
       const cfg = draft();
       const used = usages(cfg, 'dns', tag);
       const msg = used.length ? t('dns.delete-used', { tag, n: used.length }) : t('dns.delete-confirm', { tag });
-      if (!(await confirmDelete(msg))) return;
+      if (!(await confirmDelete(msg, { title: t('dns.delete-title', { tag }), confirmLabel: t('dns.delete-action') }))) return;
       store.mutate((d) => removeDnsServer(d, tag));
       build();
     }
@@ -195,7 +192,7 @@ export const dnsPage = {
     }
 
     function editAdvancedServer(server) {
-      const area = h('textarea', { class: 'textarea code', rows: 10, spellcheck: 'false' });
+      const area = h('textarea', { class: 'textarea code', rows: 10, spellcheck: 'false', 'aria-label': t('dns.edit-json') });
       area.value = JSON.stringify(server, null, 2);
       const err = h('div', { style: { color: 'var(--danger)' } });
       const dlg = modal({
@@ -235,7 +232,11 @@ export const dnsPage = {
             model: m, index: i, total: models.length, cfg, ctx: CTX,
             onToggle: (on) => { store.mutate((d) => { const r = getRules(d, 'dns')[i]; if (on) delete r.__off; else r.__off = true; }); build(); },
             onEdit: () => editRule(i),
-            onDelete: async () => { if (!(await confirmDelete(t('rule.delete-confirm')))) return; store.mutate((d) => getRules(d, 'dns').splice(i, 1)); build(); },
+            onDelete: () => deleteWithUndo({
+              message: t('rule.deleted'),
+              remove: () => { let removed; store.mutate((d) => ([removed] = getRules(d, 'dns').splice(i, 1))); build(); return removed; },
+              restore: (rule) => { store.mutate((d) => getRules(d, 'dns').splice(i, 0, rule)); build(); },
+            }),
             onDuplicate: () => { store.mutate((d) => { const rs = getRules(d, 'dns'); rs.splice(i + 1, 0, clone(rs[i])); }); build(); },
             onUp: () => move(i, i - 1),
             onDown: () => move(i, i + 1),

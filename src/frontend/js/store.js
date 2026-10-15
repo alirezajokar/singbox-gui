@@ -96,7 +96,15 @@ export async function updateSettings(patch) {
 export function applyAppearance() {
   setLang(state.settings.lang);
   const theme = state.settings.theme === 'system' ? (api.systemPrefersDark() ? 'dark' : 'light') : state.settings.theme;
-  document.documentElement.dataset.theme = theme;
+  const root = document.documentElement;
+  const switching = !!root.dataset.theme && root.dataset.theme !== theme;
+  // a theme swap must not animate every colour at once: pause transitions for two frames
+  if (switching) root.classList.add('no-transitions');
+  root.dataset.theme = theme;
+  if (switching) {
+    void root.offsetHeight;
+    requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('no-transitions')));
+  }
 }
 
 // ---------------------------------------------------------------------------

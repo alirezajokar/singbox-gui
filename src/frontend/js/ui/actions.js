@@ -91,9 +91,18 @@ export async function discardChanges() {
   }
 }
 
-/** Small helper to confirm a destructive action. */
-export function confirmDelete(message, confirmLabel) {
-  return confirmDialog({ title: t('common.delete'), message, confirmLabel: confirmLabel || t('common.delete'), danger: true });
+/** Confirm a destructive action: the title names the action and the object, the button repeats it. */
+export function confirmDelete(message, { title, confirmLabel } = {}) {
+  return confirmDialog({ title: title || t('common.delete'), message, confirmLabel: confirmLabel || t('common.delete'), danger: true });
+}
+
+/**
+ * Delete at once and offer Undo (edits are drafts until Save, so this is safe and quick).
+ * remove() performs the deletion and returns what it removed; restore(item) puts it back.
+ */
+export function deleteWithUndo({ message, remove, restore }) {
+  const item = remove();
+  toast(message, 'ok', undefined, { key: 'undo', action: { label: t('common.undo'), onClick: () => restore(item) } });
 }
 
 export function noteNode(text) {

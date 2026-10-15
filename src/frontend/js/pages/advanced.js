@@ -26,7 +26,7 @@ export const advanced = {
     const root = h('div', { class: 'view-inner' });
     mount(view, root);
 
-    const area = textarea({ code: true, rows: 26, spellcheck: false });
+    const area = textarea({ code: true, rows: 26, spellcheck: false, 'aria-label': t('adv.title') });
     area.style.minHeight = '420px';
     area.style.fontSize = '12.5px';
     const status = h('div', { class: 'row', style: { minHeight: '24px' } });

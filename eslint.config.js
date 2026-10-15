@@ -8,8 +8,8 @@ export default [
       globals: {
         window: 'readonly', document: 'readonly', location: 'readonly', navigator: 'readonly', localStorage: 'readonly',
         sessionStorage: 'readonly', console: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly',
-        setInterval: 'readonly', clearInterval: 'readonly', URL: 'readonly', URLSearchParams: 'readonly',
-        Blob: 'readonly', Event: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly', atob: 'readonly',
+        setInterval: 'readonly', clearInterval: 'readonly', requestAnimationFrame: 'readonly', URL: 'readonly', URLSearchParams: 'readonly',
+        Blob: 'readonly', Event: 'readonly', getComputedStyle: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly', atob: 'readonly',
         btoa: 'readonly', Uint8Array: 'readonly', process: 'readonly', Promise: 'readonly',
       },
     },

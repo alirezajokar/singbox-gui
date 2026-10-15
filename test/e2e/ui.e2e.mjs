@@ -170,12 +170,14 @@ await scenario('template adds the rule and its rule-set', async (page, open) => 
   assert.ok(cfg.route.rules.some((r) => (r.rule_set || []).includes('geosite-telegram')));
 });
 
-await scenario('delete a rule asks for confirmation', async (page, open) => {
+await scenario('deleting a rule is instant and can be undone', async (page, open) => {
   await open('routing');
   const n = await page.locator('.list .item').count();
   await page.click('.item:nth-child(2) button[aria-label="Delete"]');
-  await page.click('.modal-foot .btn-danger');
   assert.equal(await page.locator('.list .item').count(), n - 1);
+  await page.click('.toast button:has-text("Undo")');
+  assert.equal(await page.locator('.list .item').count(), n);
+  assert.equal(await page.locator('.toast').count(), 0, 'the undo toast goes away once used');
 });
 
 await scenario('paste a mixed list into a rule', async (page, open) => {
@@ -281,6 +283,149 @@ await scenario('settings: switching language flips direction', async (page, open
   await page.waitForFunction(() => document.documentElement.dir === 'rtl');
   await page.click('.segmented button:has-text("English")');
   await page.waitForFunction(() => document.documentElement.dir === 'ltr');
+});
+
+// ---------------------------------------------------------------- accessibility
+
+/** Names of interactive controls that have no accessible name (ignores anything behind an open modal). */
+const unnamedControls = (page) =>
+  page.evaluate(() => {
+    const nameOf = (el) => {
+      const by = el.getAttribute('aria-labelledby');
+      if (by) {
+        const t = by.split(/\s+/).map((id) => (document.getElementById(id) || {}).textContent || '').join(' ').trim();
+        if (t) return t;
+      }
+      const al = el.getAttribute('aria-label');
+      if (al && al.trim()) return al.trim();
+      if (el.labels && el.labels.length) {
+        const t = [...el.labels].map((l) => l.textContent.trim()).join(' ').trim();
+        if (t) return t;
+      }
+      if (el.tagName === 'BUTTON' || el.tagName === 'A' || el.tagName === 'SUMMARY') {
+        const t = el.textContent.trim();
+        if (t) return t;
+      }
+      return (el.getAttribute('title') || '').trim();
+    };
+    const bad = [];
+    for (const el of document.querySelectorAll('input:not([type=hidden]), select, textarea, button, a[href], summary')) {
+      if (el.closest('[inert]')) continue;
+      if (!nameOf(el)) bad.push(el.outerHTML.slice(0, 140));
+    }
+    return bad;
+  });
+
+await scenario('every control on every page has an accessible name', async (page, open) => {
+  for (const p of ['dashboard', 'routing', 'dns', 'outbounds', 'general', 'logs', 'advanced', 'settings']) {
+    await open(p);
+    await page.waitForTimeout(250);
+    assert.deepEqual(await unnamedControls(page), [], `unnamed controls on ${p}`);
+  }
+});
+
+await scenario('dialogs: every control is named, focus is trapped and restored, background is inert', async (page, open) => {
+  await open('routing');
+  const trigger = page.locator('button:has-text("New rule")').first();
+  await trigger.click();
+  await page.waitForSelector('.modal');
+  assert.equal(await page.evaluate(() => document.getElementById('app').hasAttribute('inert')), true, 'page behind is inert');
+  assert.deepEqual(await unnamedControls(page), [], 'unnamed controls in the rule editor');
+  assert.equal(await page.evaluate(() => document.querySelector('.modal').getAttribute('aria-modal')), 'true');
+  assert.ok(await page.evaluate(() => document.querySelector('.modal').getAttribute('aria-labelledby')));
+  for (let i = 0; i < 40; i++) {
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => !!document.activeElement.closest('.modal')), true, `focus left the dialog on Tab #${i + 1}`);
+  }
+  for (let i = 0; i < 5; i++) {
+    await page.keyboard.press('Shift+Tab');
+    assert.equal(await page.evaluate(() => !!document.activeElement.closest('.modal')), true, 'focus left the dialog on Shift+Tab');
+  }
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.modal', { state: 'detached' });
+  assert.equal(await page.evaluate(() => document.getElementById('app').hasAttribute('inert')), false);
+  assert.equal(await page.evaluate(() => document.activeElement.textContent.trim()), 'New rule', 'focus returned to the trigger');
+  // other dialogs
+  await page.click('button:has-text("Templates")');
+  assert.deepEqual(await unnamedControls(page), [], 'unnamed controls in the templates dialog');
+  await page.keyboard.press('Escape');
+  await open('dns');
+  await page.click('button:has-text("New server")');
+  assert.deepEqual(await unnamedControls(page), [], 'unnamed controls in the DNS dialog');
+  await page.keyboard.press('Escape');
+  await open('outbounds');
+  await page.click('button:has-text("Import from links")');
+  assert.deepEqual(await unnamedControls(page), [], 'unnamed controls in the import dialog');
+});
+
+await scenario('selected options and segments expose their state, not just a colour', async (page, open) => {
+  await open('settings');
+  assert.equal(await page.locator('.segmented button[aria-pressed="true"]').count(), 3, 'one pressed button per segmented control');
+  await open('routing');
+  await page.click('button:has-text("New rule")');
+  assert.ok((await page.locator('.modal .opt[aria-pressed="true"]').count()) >= 1);
+  const mark = await page.evaluate(() => getComputedStyle(document.querySelector('.modal .opt[aria-pressed="true"]'), '::before').content);
+  assert.match(mark, /✓/, 'a check mark marks the selected option');
+});
+
+await scenario('navigation: title, current page and focus follow the route; skip link works', async (page, open) => {
+  await open('dashboard');
+  // first Tab on a fresh page lands on the skip link, which is only visible while focused
+  await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(() => document.activeElement.className), 'skip-link');
+  assert.ok(await page.evaluate(() => document.activeElement.getBoundingClientRect().top >= 0), 'the skip link is visible when focused');
+  await page.keyboard.press('Enter');
+  assert.equal(await page.evaluate(() => document.activeElement.tagName), 'H1');
+  await page.click('.nav-item:has-text("Routing")');
+  await page.waitForFunction(() => document.title.startsWith('Routing'));
+  assert.equal(await page.evaluate(() => document.activeElement.tagName), 'H1');
+  assert.equal(await page.getAttribute('.nav-item:has-text("Routing")', 'aria-current'), 'page');
+  assert.equal(await page.locator('.nav-item[aria-current="page"]').count(), 1);
+});
+
+await scenario('keyboard focus is always visible', async (page, open) => {
+  await open('routing');
+  await page.evaluate(() => document.activeElement.blur());
+  for (let i = 0; i < 25; i++) {
+    await page.keyboard.press('Tab');
+    const ring = await page.evaluate(() => {
+      const el = document.activeElement;
+      if (!el || el === document.body) return 'none';
+      const cs = getComputedStyle(el);
+      const wrap = el.closest('.chips');
+      const w = wrap ? getComputedStyle(wrap) : cs;
+      const own = cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) >= 2;
+      const track = el.type === 'checkbox' ? getComputedStyle(el.nextElementSibling) : null;
+      const viaTrack = !!track && track.outlineStyle !== 'none' && parseFloat(track.outlineWidth) >= 2;
+      const viaWrap = !!wrap && w.outlineStyle !== 'none' && parseFloat(w.outlineWidth) >= 2;
+      return own || viaTrack || viaWrap ? 'ok' : `${el.tagName}.${el.className}`;
+    });
+    assert.equal(ring, 'ok', `no visible focus ring on Tab #${i + 1}`);
+  }
+});
+
+await scenario('errors stay until dismissed; confirmations fade', async (page, open) => {
+  await open('dashboard');
+  await page.evaluate(async () => {
+    const m = await import('/js/dom.js');
+    m.toast('boom', 'error', 'details');
+    m.toast('fine', 'ok');
+  });
+  await page.waitForSelector('.toast.error');
+  await page.waitForTimeout(4200);
+  assert.equal(await page.locator('.toast.error').count(), 1, 'the error is still there');
+  assert.equal(await page.locator('.toast.ok').count(), 0, 'the confirmation faded');
+  assert.equal(await page.getAttribute('.toast.error', 'role'), 'alert');
+  await page.click('.toast.error button[aria-label="Close"]');
+  assert.equal(await page.locator('.toast').count(), 0);
+});
+
+await scenario('changing the theme does not animate every colour at once', async (page, open) => {
+  await open('settings');
+  await page.click('.segmented button:has-text("Light")');
+  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('no-transitions')), true, 'transitions are paused during the swap');
+  await page.waitForFunction(() => !document.documentElement.classList.contains('no-transitions'));
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
 });
 
 await scenario('persian UI renders without errors on every page', async (page, open) => {

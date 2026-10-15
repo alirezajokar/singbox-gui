@@ -5,7 +5,7 @@
 //   openTemplates  the gallery of ready-made rules
 //   openRuleSets   manage rule-set lists (geosite / geoip …)
 
-import { h, icon, button, field, input, textarea, select, toggle, picker, chipsInput, modal, toast, pill, empty, clear } from '../dom.js';
+import { h, icon, button, field, input, textarea, select, toggle, picker, chipsInput, modal, toast, pill, empty, clear, nameControl, uid } from '../dom.js';
 import { t } from '../i18n.js';
 import {
   CONDITIONS, CONDITION_BY_TYPE, PROTOCOLS, NETWORKS, QUERY_TYPES,
@@ -265,10 +265,12 @@ export function openRuleEditor({ cfg, ctx, model: initial, title, onSave }) {
         ),
       );
     }
+    addRow.setAttribute('role', 'group');
+    addRow.setAttribute('aria-label', t('rule.add-cond'));
     sec.append(h('div', { class: 'label', style: { marginTop: '6px' } }, t('rule.add-cond')), addRow);
 
     // smart paste
-    const paste = textarea({ rows: 4, placeholder: t('rule.paste-ph'), code: true });
+    const paste = textarea({ rows: 4, placeholder: t('rule.paste-ph'), code: true, 'aria-label': t('rule.paste') });
     const pasteBox = h(
       'div',
       { class: 'col', hidden: true },
@@ -300,11 +302,12 @@ export function openRuleEditor({ cfg, ctx, model: initial, title, onSave }) {
 
   function condBlock(c, i) {
     const meta = CONDITION_BY_TYPE[c.type];
+    const headId = uid('cond');
     const head = h(
       'div',
       { class: 'head' },
       icon(COND_ICON[c.type] || 'filter', 'sm'),
-      h('b', { class: 'grow' }, t(`cond.${c.type}`)),
+      h('b', { class: 'grow', id: headId }, t(`cond.${c.type}`)),
       h('span', { class: 'muted', style: { fontSize: '12px' } }, t(`cond.${c.type}.hint`)),
       button({ iconOnly: true, icon: 'x', variant: 'ghost', size: 'sm', label: t('common.remove'), onClick: () => { model.conds.splice(i, 1); render(); } }),
     );
@@ -329,6 +332,7 @@ export function openRuleEditor({ cfg, ctx, model: initial, title, onSave }) {
         parse: (s) => parseValues(c.type, s),
       });
     }
+    if (editor) nameControl(editor, headId);
     return h('div', { class: 'cond-block' }, head, editor);
   }
 
@@ -339,8 +343,7 @@ export function openRuleEditor({ cfg, ctx, model: initial, title, onSave }) {
     sec.append(h('div', { class: 'section-title' }, icon('arrow', 'sm flip-rtl'), t('rule.then')));
     const order = ctx.kind === 'dns' ? DNS_ACTION_ORDER : ROUTE_ACTION_ORDER;
     const types = order.includes(model.action.type) ? order : [...order, model.action.type];
-    sec.append(
-      picker({
+    const typePicker = picker({
         options: types.map((a) => ({ value: a, label: t(`act.${a}`) === `act.${a}` ? a : t(`act.${a}`), tone: a === 'reject' ? 'danger' : undefined })),
         value: model.action.type,
         onChange: (v) => {
@@ -351,27 +354,30 @@ export function openRuleEditor({ cfg, ctx, model: initial, title, onSave }) {
           }
           render();
         },
-      }),
-    );
+      });
+    typePicker.setAttribute('role', 'group');
+    typePicker.setAttribute('aria-label', t('rule.then'));
+    sec.append(typePicker);
     if (model.action.type === 'route') {
       if (ctx.kind === 'dns') {
-        sec.append(
-          h('div', { class: 'label' }, t('rule.use-server')),
-          dnsTags.length
-            ? picker({ options: dnsTags.map((tag) => ({ value: tag, label: tag })), value: model.action.server, onChange: (v) => (model.action.server = v) })
-            : h('div', { class: 'muted' }, t('rule.no-dns')),
-        );
+        const serverPicker = dnsTags.length
+          ? picker({ options: dnsTags.map((tag) => ({ value: tag, label: tag })), value: model.action.server, onChange: (v) => (model.action.server = v) })
+          : null;
+        if (serverPicker) serverPicker.setAttribute('aria-label', t('rule.use-server'));
+        sec.append(h('div', { class: 'label' }, t('rule.use-server')), serverPicker || h('div', { class: 'muted' }, t('rule.no-dns')));
       } else {
-        sec.append(
-          h('div', { class: 'label' }, t('rule.send-to')),
-          choices.length
-            ? picker({
-                options: choices.map((o) => ({ value: o.tag, label: o.tag, hint: o.type, tone: toneOf(o.tag, cfg) })),
-                value: model.action.outbound,
-                onChange: (v) => (model.action.outbound = v),
-              })
-            : h('div', { class: 'muted' }, t('rule.no-outbounds')),
-        );
+        const outPicker = choices.length
+          ? picker({
+              options: choices.map((o) => ({ value: o.tag, label: o.tag, hint: o.type, tone: toneOf(o.tag, cfg) })),
+              value: model.action.outbound,
+              onChange: (v) => (model.action.outbound = v),
+            })
+          : null;
+        if (outPicker) {
+          outPicker.setAttribute('role', 'group');
+          outPicker.setAttribute('aria-label', t('rule.send-to'));
+        }
+        sec.append(h('div', { class: 'label' }, t('rule.send-to')), outPicker || h('div', { class: 'muted' }, t('rule.no-outbounds')));
       }
     }
     const hint = t(`act.${model.action.type}.hint`);
@@ -382,7 +388,7 @@ export function openRuleEditor({ cfg, ctx, model: initial, title, onSave }) {
   // -- raw JSON --------------------------------------------------------------
 
   function advancedSection() {
-    const jsonArea = textarea({ code: true, rows: 9 });
+    const jsonArea = textarea({ code: true, rows: 9, 'aria-label': t('rule.json') });
     const msg = h('div', { class: 'muted' });
     const details = h(
       'details',
@@ -528,15 +534,15 @@ export function openRuleSets({ getCfg, mutate }) {
     // custom
     let kind = 'geosite';
     let name = '';
-    const nameInput = input({ placeholder: 'category-ir', ltr: true, onInput: (v) => (name = v.trim()) });
-    const urlInput = input({ placeholder: 'https://…/list.srs', ltr: true });
+    const nameInput = input({ placeholder: 'category-ir', ltr: true, 'aria-label': t('rs.custom'), onInput: (v) => (name = v.trim()) });
+    const urlInput = input({ placeholder: 'https://…/list.srs', ltr: true, 'aria-label': t('rs.add-url') });
     body.append(
       h(
         'div',
         { class: 'section' },
         h('div', { class: 'section-title' }, icon('plus', 'sm'), t('rs.custom')),
         h('div', { class: 'row wrap' },
-          select({ options: ['geosite', 'geoip'], value: kind, onChange: (v) => (kind = v) }),
+          select({ options: ['geosite', 'geoip'], value: kind, onChange: (v) => (kind = v), 'aria-label': t('rs.custom') }),
           h('div', { class: 'grow' }, nameInput),
           button({ label: t('common.add'), onClick: () => { if (name) { addSet(remoteRuleSet(kind, name, { detour })); } } }),
         ),

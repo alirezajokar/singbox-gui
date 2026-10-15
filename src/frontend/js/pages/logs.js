@@ -27,18 +27,20 @@ export const logs = {
 
     // ------------------------------------------------------------ toolbar
     function renderToolbar() {
-      const search = input({ value: prefs.query, placeholder: t('logs.search'), onInput: (v) => { prefs.query = v; paint(); } });
+      const search = input({ value: prefs.query, placeholder: t('logs.search'), 'aria-label': t('logs.search'), onInput: (v) => { prefs.query = v; paint(); } });
       search.style.minWidth = '200px';
       const lines = select({
         options: ['50', '200', '500', '1000'].map((n) => ({ value: n, label: n })),
         value: String(prefs.lines),
         onChange: (v) => { prefs.lines = Number(v); load(); },
+        'aria-label': t('logs.lines'),
       });
       lines.style.width = '84px';
       lines.title = t('logs.lines');
       mount(
         toolbar,
         segmented({
+          label: t('page.logs.title'),
           options: [{ value: 'all', label: t('logs.filter.all') }, { value: 'warn', label: t('logs.filter.warn') }, { value: 'error', label: t('logs.filter.error') }],
           value: prefs.level,
           onChange: (v) => { prefs.level = v; renderToolbar(); paint(); },

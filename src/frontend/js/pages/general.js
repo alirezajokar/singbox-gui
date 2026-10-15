@@ -1,6 +1,6 @@
 // General: logging, inbounds (how apps connect to sing-box), and a few switches.
 
-import { h, icon, button, notice, select, toggle, mount, empty, modal, field, input, textarea, pill } from '../dom.js';
+import { h, icon, button, notice, select, toggle, mount, empty, modal, field, input, textarea, pill, settingRow } from '../dom.js';
 import { t } from '../i18n.js';
 import * as store from '../store.js';
 import { inbounds, ensure, ensureRoute } from '../config.js';
@@ -26,8 +26,7 @@ export const general = {
       mount(root, loggingCard(), inboundsCard(), experimentalCard());
     }
 
-    const row = (title, hint, control, auto = false) =>
-      h('div', { class: 'setting' }, h('div', { class: 'txt' }, h('b', null, title), hint ? h('span', null, hint) : null), h('div', { class: `ctl ${auto ? 'auto' : ''}`.trim() }, control));
+    const row = settingRow;
 
     // ------------------------------------------------------------ logging + network
     function loggingCard() {
@@ -62,7 +61,7 @@ export const general = {
             h('div', { class: 'actions' },
               button({ iconOnly: true, icon: 'edit', variant: 'ghost', size: 'sm', label: t('common.edit'), onClick: () => edit(i.tag) }),
               button({ iconOnly: true, icon: 'trash', variant: 'ghost', size: 'sm', label: t('common.delete'), onClick: async () => {
-                if (!(await confirmDelete(t('gen.inbound-delete', { tag: i.tag })))) return;
+                if (!(await confirmDelete(t('gen.inbound-delete'), { title: t('gen.inbound-delete-title', { tag: i.tag }), confirmLabel: t('gen.inbound-delete-action') }))) return;
                 store.mutate((d) => { d.inbounds = inbounds(d).filter((x) => x !== i && x.tag !== i.tag); });
                 build();
               } })),
@@ -91,7 +90,7 @@ export const general = {
 
     function edit(tag) {
       const existing = tag ? inbounds(draft()).find((i) => i.tag === tag) : null;
-      const area = textarea({ code: true, rows: 12 });
+      const area = textarea({ code: true, rows: 12, 'aria-label': t('gen.inbound-edit') });
       area.value = JSON.stringify(existing || { type: 'mixed', tag: uniqueTag('mixed-in', inbounds(draft()).map((x) => x.tag)), listen: '127.0.0.1', listen_port: 2080 }, null, 2);
       const err = h('div', { style: { color: 'var(--danger)' } });
       const dlg = modal({

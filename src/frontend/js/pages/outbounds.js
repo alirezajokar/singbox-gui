@@ -102,7 +102,7 @@ export const outboundsPage = {
     async function remove(tag) {
       const used = usages(draft(), 'outbound', tag);
       const msg = used.length ? t('ob.delete-used', { tag, n: used.length }) : t('ob.delete-confirm', { tag });
-      if (!(await confirmDelete(msg))) return;
+      if (!(await confirmDelete(msg, { title: t('ob.delete-title', { tag }), confirmLabel: t('ob.delete-action') }))) return;
       let res;
       store.mutate((d) => (res = removeOutbound(d, tag)));
       if (res && res.removedRules) toast(t('ob.removed-rules', { n: res.removedRules }));
@@ -113,7 +113,7 @@ export const outboundsPage = {
     function editJson(tag) {
       const kindOf = (d, tg) => (endpoints(d).some((x) => x.tag === tg) ? 'endpoints' : 'outbounds');
       const existing = tag ? allItems().find((x) => x.o.tag === tag) : null;
-      const area = textarea({ code: true, rows: 14 });
+      const area = textarea({ code: true, rows: 14, 'aria-label': t('ob.edit') });
       area.value = JSON.stringify(existing ? existing.o : { type: 'direct', tag: uniqueTag('direct', allItems().map((x) => x.o.tag)) }, null, 2);
       const err = h('div', { style: { color: 'var(--danger)' } });
       const dlg = modal({
@@ -222,7 +222,7 @@ export const outboundsPage = {
 
     // ------------------------------------------------------------ import links
     function openImport() {
-      const area = textarea({ rows: 6, code: true, placeholder: 'vless://…\nvmess://…\ntrojan://…\nss://…\nhysteria2://…' });
+      const area = textarea({ rows: 6, code: true, 'aria-label': t('ob.import'), placeholder: 'vless://…\nvmess://…\ntrojan://…\nss://…\nhysteria2://…' });
       const preview = h('div', { class: 'col', style: { gap: '8px' } });
       const groups = outbounds(draft()).filter((o) => o.type === 'selector' || o.type === 'urltest');
       let parsed = { outbounds: [], errors: [], warnings: [] };

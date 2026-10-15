@@ -83,7 +83,7 @@ export const dashboard = {
         'div',
         { class: 'card tile' },
         h('div', { class: 'k' }, t('dash.autostart')),
-        h('div', { class: 'row' }, h('div', { class: 'v grow', style: { fontSize: '15px' } }, s && s.enabled ? t('dash.autostart-on') : t('dash.autostart-off')), toggle({ checked: !!(s && s.enabled), disabled: !s || !s.loaded || !!store.state.busy, onChange: async (on, el) => { el.disabled = true; await runService(on ? 'enable' : 'disable'); } })),
+        h('div', { class: 'row' }, h('div', { class: 'v grow', style: { fontSize: '15px' } }, s && s.enabled ? t('dash.autostart-on') : t('dash.autostart-off')), toggle({ label: t('dash.autostart'), checked: !!(s && s.enabled), disabled: !s || !s.loaded || !!store.state.busy, onChange: async (on, el) => { el.disabled = true; await runService(on ? 'enable' : 'disable'); } })),
         h('div', { class: 'muted', style: { fontSize: '12px' } }, t('dash.autostart-hint')),
       );
 

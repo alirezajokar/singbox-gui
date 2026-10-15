@@ -133,8 +133,61 @@ export function button({ label, icon: ic, variant = '', size = '', title, onClic
   return b;
 }
 
+let uidCounter = 0;
+const nextId = (p) => `${p}${(uidCounter += 1)}`;
+export const uid = nextId;
+
+/** The control a label should point at: the element itself or the first native control inside it. */
+function nativeControl(control) {
+  if (!control || !control.matches) return null;
+  if (control.matches('input, select, textarea')) return control;
+  return control.querySelector('input:not([type="hidden"]), select, textarea');
+}
+
+/**
+ * Give a control its accessible name (and description). Native controls are named
+ * with aria-labelledby; anything else (a row of buttons) becomes a labelled group.
+ */
+export function nameControl(control, labelId, hintId) {
+  const target = nativeControl(control);
+  if (target) {
+    target.setAttribute('aria-labelledby', labelId);
+    if (hintId) target.setAttribute('aria-describedby', hintId);
+  } else if (control && control.setAttribute) {
+    control.setAttribute('role', 'group');
+    control.setAttribute('aria-labelledby', labelId);
+    if (hintId) control.setAttribute('aria-describedby', hintId);
+  }
+}
+
 export function field(label, control, hint) {
-  return h('div', { class: 'field' }, label ? h('label', null, label) : null, control, hint ? h('div', { class: 'hint' }, hint) : null);
+  const labelId = nextId('lbl');
+  const hintId = hint ? nextId('hint') : null;
+  const native = label ? nativeControl(control) : null;
+  const labelEl = label ? h('label', { id: labelId }, label) : null;
+  if (native && labelEl) {
+    native.id = native.id || nextId('ctl');
+    labelEl.htmlFor = native.id;
+    if (hintId) native.setAttribute('aria-describedby', hintId);
+  } else if (label) {
+    nameControl(control, labelId, hintId);
+  }
+  return h('div', { class: 'field' }, labelEl, control, hint ? h('div', { class: 'hint', id: hintId }, hint) : null);
+}
+
+/** One row of a settings card: title + hint on one side, the control on the other. */
+export function settingRow(title, hint, control, auto = false) {
+  const titleId = nextId('set');
+  const hintId = hint ? nextId('hint') : null;
+  // read-only rows (a value pill) have nothing to name
+  const interactive = control.matches('input, select, textarea, .segmented, .picker, .switch') || !!control.querySelector('input, select, textarea, button');
+  if (interactive) nameControl(control, titleId, hintId);
+  return h(
+    'div',
+    { class: 'setting' },
+    h('div', { class: 'txt' }, h('b', { id: titleId }, title), hint ? h('span', { id: hintId }, hint) : null),
+    h('div', { class: `ctl ${auto ? 'auto' : ''}`.trim() }, control),
+  );
 }
 
 export function input({ value = '', placeholder = '', onInput, onChange, type = 'text', ltr = false, mono = false, invalid = false, ...rest } = {}) {
@@ -160,8 +213,8 @@ export function textarea({ value = '', placeholder = '', onInput, code = false, 
 }
 
 /** options: [{ value, label }] or strings */
-export function select({ options, value, onChange, ltr = false, placeholder } = {}) {
-  const el = h('select', { class: `select ${ltr ? 'ltr' : ''}`.trim() });
+export function select({ options, value, onChange, ltr = false, placeholder, ...rest } = {}) {
+  const el = h('select', { class: `select ${ltr ? 'ltr' : ''}`.trim(), ...rest });
   if (placeholder !== undefined) el.append(h('option', { value: '' }, placeholder));
   for (const o of options) {
     const opt = typeof o === 'string' ? { value: o, label: o } : o;
@@ -178,11 +231,11 @@ export function toggle({ checked = false, onChange, disabled = false, label } = 
   return h('label', { class: 'switch' }, cb, h('span', { class: 'track' }));
 }
 
-export function segmented({ options, value, onChange }) {
-  const wrap = h('div', { class: 'segmented', role: 'tablist' });
+export function segmented({ options, value, onChange, label }) {
+  const wrap = h('div', { class: 'segmented', role: 'group', 'aria-label': label });
   for (const o of options) {
-    const b = h('button', { type: 'button', class: o.value === value ? 'on' : '', onclick: () => onChange(o.value) }, o.label);
-    wrap.append(b);
+    const on = o.value === value;
+    wrap.append(h('button', { type: 'button', class: on ? 'on' : '', 'aria-pressed': on ? 'true' : 'false', onclick: () => onChange(o.value) }, o.label));
   }
   return wrap;
 }
@@ -201,6 +254,7 @@ export function picker({ options, value, onChange, multi = false, tone }) {
           {
             type: 'button',
             class: `opt ${on ? 'on' : ''} ${o.tone || tone ? `tone-${o.tone || tone}` : ''}`.trim(),
+            'aria-pressed': on ? 'true' : 'false',
             onclick: () => {
               if (multi) {
                 if (on) sel.delete(o.value);
@@ -229,11 +283,11 @@ export function picker({ options, value, onChange, multi = false, tone }) {
  * Tag-style input. Enter / comma / space / paste create chips.
  * parse(text) -> string[] normalises what was typed.
  */
-export function chipsInput({ values, onChange, placeholder = '', parse, suggestions, rtl = false }) {
+export function chipsInput({ values, onChange, placeholder = '', parse, suggestions, rtl = false, label }) {
   const state = [...values];
   const box = h('div', { class: `chips ${rtl ? 'rtl-input' : ''}`.trim() });
   const listId = suggestions && suggestions.length ? `dl-${Math.random().toString(36).slice(2, 8)}` : null;
-  const inp = h('input', { type: 'text', placeholder, spellcheck: 'false', autocomplete: 'off', list: listId });
+  const inp = h('input', { type: 'text', placeholder, spellcheck: 'false', autocomplete: 'off', list: listId, 'aria-label': label });
   const dl = listId ? h('datalist', { id: listId }, suggestions.map((s) => h('option', { value: s }))) : null;
 
   const commit = (text) => {
@@ -265,7 +319,7 @@ export function chipsInput({ values, onChange, placeholder = '', parse, suggesti
             {
               type: 'button',
               class: 'chip-btn',
-              'aria-label': t('common.remove'),
+              'aria-label': `${t('common.remove')}: ${v}`,
               onclick: (e) => {
                 e.stopPropagation();
                 state.splice(state.indexOf(v), 1);
@@ -320,25 +374,65 @@ export function chipsInput({ values, onChange, placeholder = '', parse, suggesti
  * modal({ title, body, footer: [buttons], size: 'wide'|'narrow'|'' , onClose })
  * returns { el, close }
  */
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
+let openModals = 0;
+
+/** The page behind a modal must not be reachable: `inert` removes it from focus and from assistive tech. */
+function setBackgroundInert(on) {
+  const app = document.getElementById('app');
+  if (!app) return;
+  if (on) app.setAttribute('inert', '');
+  else app.removeAttribute('inert');
+}
+
+/**
+ * modal({ title, body, footer: [buttons], size: 'wide'|'narrow'|'' , onClose })
+ * returns { el, close }
+ * Focus moves inside, Tab stays inside, Escape closes, focus returns to the trigger.
+ */
 export function modal({ title, body, footer, size = '', onClose, closable = true }) {
   const prevFocus = document.activeElement;
+  const titleId = nextId('dlg');
   const close = (result) => {
     document.removeEventListener('keydown', onKey, true);
     overlay.remove();
-    if (prevFocus && prevFocus.focus) prevFocus.focus();
+    openModals -= 1;
+    if (openModals <= 0) setBackgroundInert(false);
+    if (prevFocus && prevFocus.focus && document.contains(prevFocus)) prevFocus.focus();
     if (onClose) onClose(result);
   };
   const onKey = (e) => {
     // only the top-most modal reacts
-    if (e.key === 'Escape' && closable && overlay === lastOverlay()) {
+    if (overlay !== lastOverlay()) return;
+    if (e.key === 'Escape' && closable) {
       e.stopPropagation();
       close();
+    } else if (e.key === 'Tab') {
+      const items = [...box.querySelectorAll(FOCUSABLE)].filter((el) => el.offsetParent !== null);
+      if (!items.length) {
+        e.preventDefault();
+        box.focus();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === box)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      } else if (!box.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
     }
   };
   const box = h(
     'div',
-    { class: `modal ${size}`.trim(), role: 'dialog', 'aria-modal': 'true' },
-    h('div', { class: 'modal-head' }, h('h3', null, title), closable ? button({ iconOnly: true, icon: 'x', variant: 'ghost', size: 'sm', label: t('common.close'), onClick: () => close() }) : null),
+    { class: `modal ${size}`.trim(), role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': titleId, tabindex: '-1' },
+    h('div', { class: 'modal-head' }, h('h3', { id: titleId }, title), closable ? button({ iconOnly: true, icon: 'x', variant: 'ghost', size: 'sm', label: t('common.close'), onClick: () => close() }) : null),
     h('div', { class: 'modal-body' }, body),
     footer ? h('div', { class: 'modal-foot' }, footer) : null,
   );
@@ -349,9 +443,12 @@ export function modal({ title, body, footer, size = '', onClose, closable = true
     },
   }, box);
   document.body.append(overlay);
+  openModals += 1;
+  setBackgroundInert(true);
   document.addEventListener('keydown', onKey, true);
-  const first = box.querySelector('input:not([type=checkbox]), textarea, select');
-  if (first) setTimeout(() => first.focus(), 30);
+  // first field if there is one, otherwise the dialog itself (so it is announced and Escape works)
+  const first = box.querySelector('input:not([type=checkbox]):not([type=hidden]), textarea, select');
+  (first || box).focus();
   return { el: box, close };
 }
 
@@ -383,19 +480,34 @@ export function confirmDialog({ title, message, confirmLabel, danger = false, ca
   });
 }
 
-export function toast(message, kind = 'ok', detail) {
+/**
+ * toast(message, 'ok' | 'error', detail, { action: { label, onClick }, key })
+ * Errors and toasts that carry an action stay until dismissed; plain confirmations fade after a few seconds.
+ * A toast with the same `key` replaces the previous one.
+ */
+export function toast(message, kind = 'ok', detail, opts = {}) {
   const host = document.getElementById('toasts');
   if (!host) return;
+  const { action, key } = opts;
+  if (key) host.querySelectorAll(`[data-key="${key}"]`).forEach((n) => n.remove());
   const el = h(
     'div',
-    { class: `toast ${kind}`, role: 'status' },
+    { class: `toast ${kind}`, role: kind === 'error' ? 'alert' : 'status', dataset: key ? { key } : undefined },
     icon(kind === 'error' ? 'alert' : 'check'),
-    h('div', { class: 'grow' }, h('div', null, message), detail ? h('pre', null, detail) : null),
+    h(
+      'div',
+      { class: 'grow' },
+      h('div', null, message),
+      detail ? h('pre', null, detail) : null,
+      action
+        ? h('div', { style: { marginTop: '8px' } }, button({ label: action.label, size: 'sm', onClick: () => { action.onClick(); el.remove(); } }))
+        : null,
+    ),
+    button({ iconOnly: true, icon: 'x', variant: 'ghost', size: 'sm', label: t('common.close'), onClick: () => el.remove() }),
   );
+  el.lastChild.classList.add('close');
   host.append(el);
-  const ttl = kind === 'error' ? 9000 : 3200;
-  setTimeout(() => el.remove(), ttl);
-  el.addEventListener('click', () => el.remove());
+  if (kind !== 'error' && !action) setTimeout(() => el.remove(), 3600);
 }
 
 export function notice({ kind = 'info', title, text, detail, actions }) {

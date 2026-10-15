@@ -1,6 +1,6 @@
 // Settings: language, theme, where the service and its config live, privileges.
 
-import { h, button, toggle, mount, segmented, input, toast, pill } from '../dom.js';
+import { h, button, toggle, mount, segmented, input, toast, pill, settingRow } from '../dom.js';
 import { t } from '../i18n.js';
 import * as api from '../api.js';
 import * as store from '../store.js';
@@ -19,8 +19,7 @@ export const settings = {
     let passwordless = false;
     let privLoaded = false;
 
-    const row = (title, hint, control, auto = false) =>
-      h('div', { class: 'setting' }, h('div', { class: 'txt' }, h('b', null, title), hint ? h('span', null, hint) : null), h('div', { class: `ctl ${auto ? 'auto' : ''}`.trim() }, control));
+    const row = settingRow;
 
     function build() {
       const s = store.state.settings;
@@ -49,7 +48,7 @@ export const settings = {
           'div',
           { class: 'card-body' },
           row(t('set.unit'), t('set.unit-hint'), unitInput),
-          row(t('set.config-path'), t('set.config-path-hint'), h('div', { class: 'col', style: { gap: '8px' } }, pathInput, h('div', { class: 'row' },
+          row(t('set.config-path'), t('set.config-path-hint'), h('div', { class: 'col', style: { gap: '8px' } }, pathInput, h('div', { class: 'row wrap' },
             button({ label: t('set.detect'), icon: 'wand', size: 'sm', onClick: async () => {
               try {
                 const d = await api.call('cfg.detect', { unit: store.state.settings.unit });

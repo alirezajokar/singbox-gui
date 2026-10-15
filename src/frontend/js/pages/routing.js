@@ -1,12 +1,12 @@
 // Routing: the heart of the app. A friendly, ordered list of rules.
 
-import { h, button, notice, select, mount, empty, toast } from '../dom.js';
+import { h, button, notice, select, mount, empty, toast, nameControl, uid } from '../dom.js';
 import { t } from '../i18n.js';
 import * as store from '../store.js';
 import { getRules, outboundChoices, ensureRoute } from '../config.js';
 import { ruleToModel, modelToRule } from '../rules.js';
 import { ruleRow, sortable, openRuleEditor, newRuleModel, openTemplates, openRuleSets } from '../ui/rules-ui.js';
-import { confirmDelete } from '../ui/actions.js';
+import { deleteWithUndo } from '../ui/actions.js';
 import { clone } from '../util.js';
 
 const CTX = { kind: 'route' };
@@ -49,13 +49,15 @@ export const routing = {
       });
       sel.style.width = '280px';
       sel.classList.add('ltr');
+      const titleId = uid('final');
+      nameControl(sel, titleId);
       return h(
         'section',
         { class: 'card' },
         h(
           'div',
           { class: 'default-row' },
-          h('div', { class: 'grow' }, h('div', { style: { fontWeight: 650 } }, t('route.final-title')), h('div', { class: 'muted', style: { fontSize: '12.5px' } }, t('route.final-hint'))),
+          h('div', { class: 'grow' }, h('div', { id: titleId, style: { fontWeight: 600 } }, t('route.final-title')), h('div', { class: 'muted', style: { fontSize: '12.5px' } }, t('route.final-hint'))),
           sel,
         ),
       );
@@ -85,11 +87,20 @@ export const routing = {
               build();
             },
             onEdit: () => editRule(i),
-            onDelete: async () => {
-              if (!(await confirmDelete(t('rule.delete-confirm')))) return;
-              store.mutate((d) => getRules(d, 'route').splice(i, 1));
-              build();
-            },
+            onDelete: () =>
+              deleteWithUndo({
+                message: t('rule.deleted'),
+                remove: () => {
+                  let removed;
+                  store.mutate((d) => ([removed] = getRules(d, 'route').splice(i, 1)));
+                  build();
+                  return removed;
+                },
+                restore: (rule) => {
+                  store.mutate((d) => getRules(d, 'route').splice(i, 0, rule));
+                  build();
+                },
+              }),
             onDuplicate: () => {
               store.mutate((d) => {
                 const rs = getRules(d, 'route');

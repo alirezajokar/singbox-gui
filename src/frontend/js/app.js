@@ -62,7 +62,7 @@ function renderSidebar() {
     nav.append(
       h(
         'button',
-        { type: 'button', class: `nav-item ${item.id === active ? 'active' : ''}`.trim(), onclick: () => app.go(item.id), title: t(`nav.${item.id}`) },
+        { type: 'button', class: 'nav-item', 'aria-current': item.id === active ? 'page' : undefined, onclick: () => app.go(item.id), title: t(`nav.${item.id}`) },
         icon(item.icon),
         h('span', { class: 'lbl' }, t(`nav.${item.id}`)),
       ),
@@ -72,6 +72,7 @@ function renderSidebar() {
   statusPillEl = h('button', { type: 'button', class: 'status-pill', onclick: () => app.go('dashboard') });
   mount(
     sidebarEl,
+    h('a', { class: 'skip-link', href: '#view', onclick: (e) => { e.preventDefault(); focusMain(); } }, t('a11y.skip')),
     h('div', { class: 'brand' }, h('div', { class: 'brand-logo' }, icon('box')), h('div', null, h('div', { class: 'brand-name' }, 'Singbox GUI'), h('div', { class: 'brand-sub' }, t('app.tagline')))),
     nav,
     h('div', { class: 'sidebar-foot' }, statusPillEl),
@@ -96,7 +97,15 @@ function renderStatusPill() {
 }
 
 function renderTopbar() {
-  mount(topbarEl, h('div', null, h('h1', null, t(`page.${current.id}.title`)), h('div', { class: 'sub' }, t(`page.${current.id}.sub`))));
+  const title = t(`page.${current.id}.title`);
+  document.title = `${title} · Singbox GUI`;
+  mount(topbarEl, h('div', null, h('h1', { tabindex: '-1' }, title), h('div', { class: 'sub' }, t(`page.${current.id}.sub`))));
+}
+
+/** Move focus to the page heading, so keyboard and screen-reader users land on the new view. */
+function focusMain() {
+  const heading = topbarEl && topbarEl.querySelector('h1');
+  if (heading) heading.focus();
 }
 
 function renderSavebar() {
@@ -124,7 +133,7 @@ function renderSavebar() {
 // router
 // ---------------------------------------------------------------------------
 
-function renderPage() {
+function renderPage(moveFocus = true) {
   if (cleanup) {
     try {
       cleanup();
@@ -139,9 +148,10 @@ function renderPage() {
   viewEl.scrollTop = 0;
   mount(viewEl);
   cleanup = current.render(viewEl, app) || null;
+  if (moveFocus) focusMain();
 }
 
-window.addEventListener('hashchange', renderPage);
+window.addEventListener('hashchange', () => renderPage(true));
 
 // ---------------------------------------------------------------------------
 // store → shell
@@ -187,7 +197,7 @@ async function start() {
   }
   store.applyAppearance();
   buildShell();
-  renderPage();
+  renderPage(false);
 }
 
 start();
