@@ -50,7 +50,7 @@ jobs:
         run: |
           for f in scripts/*.sh; do bash -n "$f"; done
           for f in packaging/singbox-gui-helper packaging/singbox-gui.sh packaging/postinst packaging/postrm; do sh -n "$f"; done
-          xmllint --noout packaging/app.singboxgui.policy
+          python3 -c "import xml.dom.minidom as m; m.parse('packaging/app.singboxgui.policy')"
 
       - name: Unit and sing-box validation tests
         run: npm test

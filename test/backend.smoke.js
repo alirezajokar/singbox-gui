@@ -81,9 +81,13 @@ console.log('logs.get');
 const logs = await api['logs.get']({ unit: 'sing-box.service', lines: 20 });
 ok(typeof logs === 'object' && 'ok' in logs, 'returns a result object even without a journal');
 
-console.log('svc.do without a helper / pkexec fails cleanly');
-const act = await api['svc.do']({ unit: 'sing-box.service', action: 'start' });
-ok(act.ok === false && typeof act.reason === 'string', `start does not crash (${act.reason || 'ok'})`);
+if (!info.pkexec) {
+  console.log('svc.do without pkexec fails cleanly');
+  const act = await api['svc.do']({ unit: 'sing-box.service', action: 'start' });
+  ok(act.ok === false && typeof act.reason === 'string', `start does not crash (${act.reason || 'ok'})`);
+} else {
+  console.log('  skip svc.do (pkexec is installed: it would wait for a password)');
+}
 
 await tjs.remove(base, { recursive: true }).catch(() => {});
 console.log(failures ? `\n${failures} check(s) failed` : '\nall checks passed');
