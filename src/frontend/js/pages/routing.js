@@ -36,7 +36,7 @@ export const routing = {
       const choices = outboundChoices(cfg);
       const current = (cfg.route && cfg.route.final) || '';
       const sel = select({
-        options: [{ value: '', label: t('route.final-first') }, ...choices.map((c) => ({ value: c.tag, label: `${c.tag}  ·  ${c.type}` }))],
+        options: [{ value: '', label: t('route.final-first') }, ...choices.map((c) => ({ value: c.tag, label: c.tag, meta: c.type }))],
         value: current,
         onChange: (v) => {
           store.mutate((d) => {
@@ -48,7 +48,6 @@ export const routing = {
         },
       });
       sel.style.width = '280px';
-      sel.classList.add('ltr');
       const titleId = uid('final');
       nameControl(sel, titleId);
       return h(

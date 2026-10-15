@@ -309,7 +309,7 @@ const unnamedControls = (page) =>
       return (el.getAttribute('title') || '').trim();
     };
     const bad = [];
-    for (const el of document.querySelectorAll('input:not([type=hidden]), select, textarea, button, a[href], summary')) {
+    for (const el of document.querySelectorAll('input:not([type=hidden]), select, textarea, button, [role=combobox], a[href], summary')) {
       if (el.closest('[inert]')) continue;
       if (!nameOf(el)) bad.push(el.outerHTML.slice(0, 140));
     }
@@ -433,6 +433,126 @@ await scenario('persian UI renders without errors on every page', async (page, o
     await open(p);
     assert.ok((await page.textContent('.topbar h1')).length > 0);
   }
+}, { lang: 'fa' });
+
+await scenario('logs page fits the window at any height: the log box scrolls, the page does not', async (page, open) => {
+  for (const [w, h] of [[1120, 740], [1000, 600], [1400, 1000]]) {
+    await page.setViewportSize({ width: w, height: h });
+    await open('logs');
+    await page.waitForSelector('.logs.tall .ln');
+    const m = await page.evaluate(() => {
+      const v = document.querySelector('.view');
+      const box = document.querySelector('.logs.tall').getBoundingClientRect();
+      return { over: v.scrollHeight - v.clientHeight, boxHeight: Math.round(box.height), bottom: Math.round(box.bottom), vh: window.innerHeight };
+    });
+    assert.ok(m.over <= 1, `no page scroll at ${w}x${h} (over by ${m.over})`);
+    assert.ok(m.boxHeight >= 190, `log box keeps a usable height at ${w}x${h} (${m.boxHeight})`);
+    assert.ok(m.bottom <= m.vh, 'log box ends inside the window');
+  }
+});
+
+await scenario('dropdown: pointer and keyboard choose a value that is saved', async (page, open) => {
+  await open('routing');
+  const dd = page.locator('.default-row .select');
+  assert.equal(await dd.getAttribute('role'), 'combobox');
+  assert.equal(await dd.getAttribute('aria-expanded'), 'false');
+  await dd.click();
+  assert.equal(await dd.getAttribute('aria-expanded'), 'true');
+  const opts = page.locator('.dd-pop [role=option]');
+  assert.ok((await opts.count()) >= 3, 'lists the outbounds');
+  assert.equal(await page.locator('.dd-pop [role=option][aria-selected=true]').count(), 1, 'exactly one selected option');
+  // keyboard: Home, ArrowDown, Enter
+  await page.keyboard.press('Home');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  assert.equal(await page.locator('.dd-pop').count(), 0, 'closed after choosing');
+  assert.equal(await dd.getAttribute('aria-expanded'), 'false');
+  assert.ok(await dd.evaluate((el) => el === document.activeElement), 'focus returns to the control');
+  await page.waitForSelector('.savebar.show');
+  await clickSave(page);
+  const cfg = await savedConfig(page);
+  assert.equal(cfg.route.final, 'direct');
+  // typing jumps to a match, Escape leaves the value alone
+  await dd.focus();
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('pro');
+  assert.match(await page.locator('.dd-pop .dd-opt.active').textContent(), /proxy/);
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('.dd-pop').count(), 0);
+  assert.match(await dd.textContent(), /direct/);
+});
+
+await scenario('dropdown: Escape closes the list first, then the dialog', async (page, open) => {
+  await open('dns');
+  await page.click('button:has-text("New server")');
+  const dd = page.locator('.modal .select').first();
+  await dd.click();
+  assert.equal(await page.locator('.dd-pop').count(), 1);
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('.dd-pop').count(), 0, 'list closed');
+  assert.equal(await page.locator('.modal').count(), 1, 'dialog still open');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('.modal').count(), 0, 'second Escape closes the dialog');
+});
+
+await scenario('dropdown: follows its control when the page scrolls, closes when the control is gone', async (page, open) => {
+  await page.setViewportSize({ width: 1180, height: 520 });
+  await open('routing');
+  const dd = page.locator('.default-row .select');
+  await dd.click();
+  await page.evaluate(() => { document.querySelector('.view').scrollTop = 20; });
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator('.dd-pop').count(), 1, 'still open after a small scroll');
+  const b = await dd.boundingBox();
+  const p = await page.locator('.dd-pop').boundingBox();
+  assert.ok(Math.abs(p.y - (b.y + b.height + 4)) < 3, 'moved with the control');
+  await page.evaluate(() => { document.querySelector('.view').scrollTop = 400; });
+  await page.waitForFunction(() => !document.querySelector('.dd-pop'), null, { timeout: 2000 });
+});
+
+await scenario('dropdown: clicking elsewhere closes it; a re-render does not leave it behind', async (page, open) => {
+  await open('dns');
+  await page.locator('.setting .select').first().click();
+  assert.equal(await page.locator('.dd-pop').count(), 1);
+  await page.mouse.click(600, 20);
+  assert.equal(await page.locator('.dd-pop').count(), 0);
+  await page.locator('.setting .select').first().click();
+  await page.evaluate(() => document.querySelector('.view-inner').replaceChildren());
+  await page.waitForFunction(() => !document.querySelector('.dd-pop'));
+});
+
+await scenario('persian: dropdown opens under its control, aligned to the start edge', async (page, open) => {
+  await open('routing');
+  const dd = page.locator('.default-row .select');
+  await dd.click();
+  await page.waitForTimeout(250); // let the opening animation finish before measuring
+  const b = await dd.boundingBox();
+  const p = await page.locator('.dd-pop').boundingBox();
+  assert.ok(Math.abs(p.x + p.width - (b.x + b.width)) < 2, 'right edges line up in RTL');
+  assert.ok(p.y >= b.y + b.height, 'below the control');
+  assert.equal(await page.locator('.dd-pop').getAttribute('dir'), 'rtl');
+}, { lang: 'fa' });
+
+await scenario('persian: counts use Persian digits, identifiers keep theirs', async (page, open) => {
+  await open('routing');
+  assert.match(await page.locator('.item .idx').first().textContent(), /^[۰-۹]+$/);
+  await open('outbounds');
+  assert.match(await page.locator('.ob', { hasText: 'proxy' }).first().textContent(), /[۰-۹]/);
+  await open('dashboard');
+  assert.match(await page.locator('.hero-meta').textContent(), /[۰-۹]/);
+  assert.match(await page.locator('.hero-meta').textContent(), /PID/);
+}, { lang: 'fa' });
+
+await scenario('persian: the bundled Vazirmatn font is what renders', async (page, open) => {
+  await open('routing');
+  const state = await page.evaluate(async () => {
+    await document.fonts.ready;
+    const faces = [...document.fonts].filter((f) => f.family.includes('Vazirmatn'));
+    return { n: faces.length, loaded: faces.filter((f) => f.status === 'loaded').map((f) => f.unicodeRange.slice(0, 6)), check: document.fonts.check('600 14px "Vazirmatn Variable"', 'مسیریابی') };
+  });
+  assert.equal(state.n, 3, 'three subsets declared');
+  assert.ok(state.loaded.length >= 1, `Persian text loaded a subset (${JSON.stringify(state)})`);
+  assert.ok(state.check);
 }, { lang: 'fa' });
 
 await browser.close();

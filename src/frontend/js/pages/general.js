@@ -39,7 +39,7 @@ export const general = {
         h(
           'div',
           { class: 'card-body' },
-          row(t('gen.log-level'), t('gen.log-level-hint'), select({ options: LEVELS.map((l) => ({ value: l, label: l })), value: log.level || 'info', ltr: true, onChange: (v) => store.mutate((d) => { ensure(d, 'log', {}).level = v; }) })),
+          row(t('gen.log-level'), t('gen.log-level-hint'), select({ options: LEVELS.map((l) => ({ value: l, label: l })), value: log.level || 'info', onChange: (v) => store.mutate((d) => { ensure(d, 'log', {}).level = v; }) })),
           row(t('gen.log-time'), t('gen.log-time-hint'), toggle({ checked: log.timestamp !== false, onChange: (v) => store.mutate((d) => { ensure(d, 'log', {}).timestamp = v; }) }), true),
           row(t('gen.auto-iface'), t('gen.auto-iface-hint'), toggle({ checked: !!(cfg.route && cfg.route.auto_detect_interface), onChange: (v) => store.mutate((d) => { const r = ensureRoute(d); if (v) r.auto_detect_interface = true; else delete r.auto_detect_interface; }) }), true),
         ),

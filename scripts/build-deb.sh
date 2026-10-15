@@ -38,6 +38,8 @@ install -m 0644 assets/icon.png "$ROOT/usr/share/icons/hicolor/512x512/apps/sing
 install -m 0644 packaging/icon.svg "$ROOT/usr/share/icons/hicolor/scalable/apps/singbox-gui.svg"
 install -m 0644 LICENSE "$ROOT/usr/share/doc/singbox-gui/copyright"
 install -m 0644 README.md "$ROOT/usr/share/doc/singbox-gui/README.md"
+install -d "$ROOT/usr/share/doc/singbox-gui/licenses"
+install -m 0644 licenses/*.txt "$ROOT/usr/share/doc/singbox-gui/licenses/"
 install -m 0755 packaging/postinst "$ROOT/DEBIAN/postinst"
 install -m 0755 packaging/postrm "$ROOT/DEBIAN/postrm"
 

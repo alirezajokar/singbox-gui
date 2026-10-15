@@ -41,9 +41,24 @@ export function clear(el) {
   return el;
 }
 
+const FOCUS_SELECTOR = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), summary, [role="combobox"]:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Replace the contents of `el`. Pages rebuild themselves after every change, which would
+ * throw away the keyboard focus; if it was inside `el`, it goes back to the control that
+ * now sits in the same place.
+ */
 export function mount(el, ...children) {
+  const active = document.activeElement;
+  let slot = -1;
+  if (active && active !== document.body && el.contains(active)) slot = [...el.querySelectorAll(FOCUS_SELECTOR)].indexOf(active);
   clear(el);
-  return append(el, children);
+  append(el, children);
+  if (slot >= 0) {
+    const next = el.querySelectorAll(FOCUS_SELECTOR)[slot];
+    if (next) next.focus({ preventScroll: true });
+  }
+  return el;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,6 +82,7 @@ const ICONS = {
   down: '<path d="m6 9 6 6 6-6"/>',
   grip: '<circle cx="9" cy="6" r="1.2"/><circle cx="15" cy="6" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="18" r="1.2"/><circle cx="15" cy="18" r="1.2"/>',
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   x: '<path d="M6 6l12 12M18 6 6 18"/>',
   alert: '<path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4M12 17.5h.01"/>',
@@ -140,8 +156,8 @@ export const uid = nextId;
 /** The control a label should point at: the element itself or the first native control inside it. */
 function nativeControl(control) {
   if (!control || !control.matches) return null;
-  if (control.matches('input, select, textarea')) return control;
-  return control.querySelector('input:not([type="hidden"]), select, textarea');
+  if (control.matches('input, select, textarea, [role="combobox"]')) return control;
+  return control.querySelector('input:not([type="hidden"]), select, textarea, [role="combobox"]');
 }
 
 /**
@@ -180,7 +196,7 @@ export function settingRow(title, hint, control, auto = false) {
   const titleId = nextId('set');
   const hintId = hint ? nextId('hint') : null;
   // read-only rows (a value pill) have nothing to name
-  const interactive = control.matches('input, select, textarea, .segmented, .picker, .switch') || !!control.querySelector('input, select, textarea, button');
+  const interactive = control.matches('input, select, textarea, [role="combobox"], .segmented, .picker, .switch') || !!control.querySelector('input, select, textarea, button');
   if (interactive) nameControl(control, titleId, hintId);
   return h(
     'div',
@@ -213,17 +229,8 @@ export function textarea({ value = '', placeholder = '', onInput, code = false, 
 }
 
 /** options: [{ value, label }] or strings */
-export function select({ options, value, onChange, ltr = false, placeholder, ...rest } = {}) {
-  const el = h('select', { class: `select ${ltr ? 'ltr' : ''}`.trim(), ...rest });
-  if (placeholder !== undefined) el.append(h('option', { value: '' }, placeholder));
-  for (const o of options) {
-    const opt = typeof o === 'string' ? { value: o, label: o } : o;
-    el.append(h('option', { value: opt.value, selected: opt.value === value }, opt.label));
-  }
-  if (value !== undefined) el.value = value;
-  if (onChange) el.addEventListener('change', () => onChange(el.value, el));
-  return el;
-}
+// The dropdown lives in its own file; it is re-exported so pages keep importing it from here.
+export { select } from './dropdown.js';
 
 export function toggle({ checked = false, onChange, disabled = false, label } = {}) {
   const cb = h('input', { type: 'checkbox', checked, disabled, 'aria-label': label });
@@ -405,6 +412,7 @@ export function modal({ title, body, footer, size = '', onClose, closable = true
     // only the top-most modal reacts
     if (overlay !== lastOverlay()) return;
     if (e.key === 'Escape' && closable) {
+      if (document.querySelector('.dd-pop')) return; // an open dropdown takes the key first
       e.stopPropagation();
       close();
     } else if (e.key === 'Tab') {

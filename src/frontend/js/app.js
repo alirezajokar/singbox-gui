@@ -62,7 +62,7 @@ function renderSidebar() {
     nav.append(
       h(
         'button',
-        { type: 'button', class: 'nav-item', 'aria-current': item.id === active ? 'page' : undefined, onclick: () => app.go(item.id), title: t(`nav.${item.id}`) },
+        { type: 'button', class: 'nav-item', 'aria-current': item.id === active ? 'page' : undefined, onclick: () => app.go(item.id) },
         icon(item.icon),
         h('span', { class: 'lbl' }, t(`nav.${item.id}`)),
       ),

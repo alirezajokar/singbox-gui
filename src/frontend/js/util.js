@@ -98,17 +98,19 @@ export function formatBytes(n) {
   return `${v >= 10 || i === 0 ? Math.round(v) : v.toFixed(1)} ${u[i]}`;
 }
 
-/** "3d 4h", "12m 05s" … from seconds. */
-export function formatDuration(sec) {
+/** "3d 4h", "12m 05s" … from seconds. `units` swaps the letters (and `digits` the numerals) for another language. */
+export function formatDuration(sec, units = { d: 'd', h: 'h', m: 'm', s: 's' }, digits = String) {
   sec = Math.max(0, Math.floor(sec));
   const d = Math.floor(sec / 86400);
   const h = Math.floor((sec % 86400) / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
-  if (d) return `${d}d ${h}h`;
-  if (h) return `${h}h ${String(m).padStart(2, '0')}m`;
-  if (m) return `${m}m ${String(s).padStart(2, '0')}s`;
-  return `${s}s`;
+  const two = (n) => digits(units.pad === false ? n : String(n).padStart(2, '0'));
+  const sep = units.sep === undefined ? ' ' : units.sep;
+  if (d) return `${digits(d)}${units.d}${sep}${digits(h)}${units.h}`;
+  if (h) return `${digits(h)}${units.h}${sep}${two(m)}${units.m}`;
+  if (m) return `${digits(m)}${units.m}${sep}${two(s)}${units.s}`;
+  return `${digits(s)}${units.s}`;
 }
 
 export function debounce(fn, ms) {

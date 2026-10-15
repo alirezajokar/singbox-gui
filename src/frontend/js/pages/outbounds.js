@@ -207,7 +207,7 @@ export const outboundsPage = {
             }))),
         );
         if (g.type === 'selector') {
-          body.append(field(t('ob.group-default'), select({ options: [{ value: '', label: t('ob.group-default-first') }, ...g.outbounds.map((x) => ({ value: x, label: x }))], value: g.default || '', onChange: (v) => { if (v) g.default = v; else delete g.default; }, ltr: true })));
+          body.append(field(t('ob.group-default'), select({ options: [{ value: '', label: t('ob.group-default-first') }, ...g.outbounds.map((x) => ({ value: x, label: x }))], value: g.default || '', onChange: (v) => { if (v) g.default = v; else delete g.default; } })));
         } else {
           body.append(
             h('div', { class: 'form-grid' },

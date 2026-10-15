@@ -11,7 +11,7 @@ const { chromium } = require('playwright');
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '../src/frontend');
-const out = path.join(here, '../docs/screenshots');
+const out = process.env.OUT || path.join(here, '../docs/screenshots');
 fs.mkdirSync(out, { recursive: true });
 
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' };

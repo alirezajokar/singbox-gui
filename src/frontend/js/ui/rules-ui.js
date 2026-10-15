@@ -6,7 +6,7 @@
 //   openRuleSets   manage rule-set lists (geosite / geoip …)
 
 import { h, icon, button, field, input, textarea, select, toggle, picker, chipsInput, modal, toast, pill, empty, clear, nameControl, uid } from '../dom.js';
-import { t } from '../i18n.js';
+import { t, num } from '../i18n.js';
 import {
   CONDITIONS, CONDITION_BY_TYPE, PROTOCOLS, NETWORKS, QUERY_TYPES,
   ruleToModel, modelToRule, emptyModel, validateModel, parseValues, classifyLines, actionTone, isCatchAll,
@@ -31,7 +31,7 @@ export function toneOf(tag, cfg) {
 
 function valuesText(values) {
   const shown = values.slice(0, 3).join(', ');
-  return values.length > 3 ? `${shown} +${values.length - 3}` : shown;
+  return values.length > 3 ? `${shown} +${num(values.length - 3)}` : shown;
 }
 
 function actionPill(model, cfg, ctx) {
@@ -48,15 +48,15 @@ function actionPill(model, cfg, ctx) {
 }
 
 export function ruleSummary(model, cfg, ctx) {
-  const wrap = h('div', { class: 'conds' });
+  const when = h('div', { class: 'conds-when' });
   if (model.kind === 'logical') {
-    wrap.append(h('span', { class: 'cond-pill' }, icon('layers', 'sm'), h('b', null, t('rule.logical')), h('span', { class: 'v' }, `${model.raw.mode || 'and'} · ${(model.raw.rules || []).length}`)));
+    when.append(h('span', { class: 'cond-pill' }, icon('layers', 'sm'), h('b', null, t('rule.logical')), h('span', { class: 'v' }, `${model.raw.mode || 'and'} · ${(model.raw.rules || []).length}`)));
   } else if (!model.conds.length) {
-    wrap.append(h('span', { class: 'cond-pill' }, icon('globe', 'sm'), h('span', { class: 'v', style: { direction: 'inherit' } }, t('rule.all-traffic'))));
+    when.append(h('span', { class: 'cond-pill' }, icon('globe', 'sm'), h('span', { class: 'v', style: { direction: 'inherit' } }, t('rule.all-traffic'))));
   } else {
     model.conds.forEach((c, i) => {
-      if (i > 0) wrap.append(h('span', { class: 'muted', style: { fontSize: '11px' } }, '+'));
-      wrap.append(
+      if (i > 0) when.append(h('span', { class: 'cond-and', 'aria-hidden': 'true' }, '+'));
+      when.append(
         h(
           'span',
           { class: `cond-pill ${model.invert ? 'invert' : ''}`.trim() },
@@ -67,10 +67,11 @@ export function ruleSummary(model, cfg, ctx) {
       );
     });
   }
-  wrap.append(h('span', { class: 'arrow' }, icon('arrow', 'sm')), actionPill(model, cfg, ctx));
+  // the arrow and its target always stay together, on the same line
+  const then = h('div', { class: 'conds-then' }, h('span', { class: 'arrow' }, icon('arrow', 'sm')), actionPill(model, cfg, ctx));
   const restKeys = Object.keys(model.rest || {});
-  if (restKeys.length) wrap.append(h('span', { class: 'pill flat', title: restKeys.join(', ') }, `+${restKeys.length}`));
-  return wrap;
+  if (restKeys.length) then.append(h('span', { class: 'pill flat', title: restKeys.join(', ') }, `+${num(restKeys.length)}`));
+  return h('div', { class: 'conds' }, when, then);
 }
 
 /** One row of a rule list. */
@@ -79,7 +80,7 @@ export function ruleRow({ model, index, total, cfg, ctx, onToggle, onEdit, onDel
     'div',
     { class: `item ${model.enabled ? '' : 'off'}`.trim(), draggable: 'true', dataset: { index } },
     h('span', { class: 'handle', title: t('rule.drag') }, icon('grip', 'sm')),
-    h('span', { class: 'idx' }, String(index + 1)),
+    h('span', { class: 'idx' }, num(index + 1)),
     toggle({ checked: model.enabled, onChange: onToggle, label: t('rule.enabled') }),
     h(
       'div',

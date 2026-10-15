@@ -19,6 +19,11 @@ export function getLang() {
   return lang;
 }
 
+/** Counts and positions in the digits of the current language (۱۲۳ in Persian). Ports, IPs and tags stay as they are. */
+export function num(n) {
+  return lang === 'fa' ? new Intl.NumberFormat('fa-IR', { useGrouping: false }).format(n) : String(n);
+}
+
 /** t('key', { n: 3 })  — {n} placeholders; falls back to English, then the key. */
 export function t(key, vars) {
   let s = dictionaries[lang][key];
@@ -33,6 +38,7 @@ export function t(key, vars) {
 const LRI = '\u2066';
 const PDI = '\u2069';
 function isolate(v) {
+  if (typeof v === 'number') return num(v);
   const str = String(v);
   return lang === 'fa' && typeof v === 'string' && /[A-Za-z/]/.test(str) ? `${LRI}${str}${PDI}` : str;
 }

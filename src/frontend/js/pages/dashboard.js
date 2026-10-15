@@ -1,11 +1,16 @@
 // Dashboard: one big power button and the facts about the service.
 
 import { h, icon, button, notice, pill, toggle, mount, toast } from '../dom.js';
-import { t } from '../i18n.js';
+import { t, getLang, num } from '../i18n.js';
 import * as store from '../store.js';
 import { runService, showFailure } from '../ui/actions.js';
 import { formatDuration, formatBytes } from '../util.js';
 import { inbounds, outbounds, getRules, dnsServers, ruleSets } from '../config.js';
+
+/** "3h 07m" in English, "۳ ساعت و ۷ دقیقه" in Persian. */
+const uptime = (sec) =>
+  getLang() === 'fa' ? formatDuration(sec, { d: ' روز', h: ' ساعت', m: ' دقیقه', s: ' ثانیه', sep: ' و ', pad: false }, num) : formatDuration(sec);
+
 
 export const dashboard = {
   id: 'dashboard',
@@ -52,7 +57,7 @@ export const dashboard = {
       const meta = h('div', { class: 'hero-meta' });
       uptimeEl = null;
       if (s && s.active) {
-        uptimeEl = pill(formatDuration(Date.now() / 1000 - s.since), 'direct', 'clock', { ltr: true });
+        uptimeEl = pill(uptime(Date.now() / 1000 - s.since), 'direct', 'clock', { ltr: getLang() !== 'fa' });
         meta.append(uptimeEl);
         if (s.pid) meta.append(pill(`PID ${s.pid}`, 'neutral', 'cpu', { ltr: true }));
         if (s.memory) meta.append(pill(formatBytes(s.memory), 'neutral', 'layers', { ltr: true }));
@@ -118,7 +123,7 @@ export const dashboard = {
         'div',
         { class: 'card tile' },
         h('div', { class: 'k' }, t('dash.overview')),
-        h('div', { class: 'row wrap', style: { gap: '14px' } }, counts.map(([k, v]) => h('div', null, h('div', { class: 'v', style: { fontSize: '18px' } }, String(v)), h('div', { class: 'muted', style: { fontSize: '11.5px' } }, k)))),
+        h('div', { class: 'stat-grid' }, counts.map(([k, v]) => h('div', { class: 'stat' }, h('div', { class: 'n' }, num(v)), h('div', { class: 'l' }, k)))),
         ports.length ? h('div', { class: 'tag-list' }, ports.map((p) => pill(p, 'flat'))) : null,
       );
 
@@ -181,7 +186,7 @@ export const dashboard = {
 
     ticker = setInterval(() => {
       const s = store.state.status;
-      if (uptimeEl && s && s.active) uptimeEl.lastChild.textContent = formatDuration(Date.now() / 1000 - s.since);
+      if (uptimeEl && s && s.active) uptimeEl.lastChild.textContent = uptime(Date.now() / 1000 - s.since);
     }, 1000);
 
     return () => {

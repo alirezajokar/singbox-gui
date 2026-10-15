@@ -182,8 +182,8 @@ export const dnsPage = {
         const adv = h('details', { class: 'adv', open: !!(m.detour || m.resolver) },
           h('summary', null, icon('gear', 'sm'), t('dns.advanced')),
           h('div', { class: 'form-grid' },
-            field(t('dns.detour'), select({ options: [{ value: '', label: t('dns.detour-none') }, ...outs.map((o) => ({ value: o.tag, label: o.tag }))], value: m.detour, onChange: (v) => (m.detour = v), ltr: true }), t('dns.detour-hint')),
-            field(t('dns.resolver-for'), select({ options: [{ value: '', label: t('dns.resolver-auto') }, ...dnsTags.map((x) => ({ value: x, label: x }))], value: m.resolver, onChange: (v) => (m.resolver = v), ltr: true }), hostNeedsResolver(m) ? t('dns.resolver-needed') : t('dns.resolver-for-hint')),
+            field(t('dns.detour'), select({ options: [{ value: '', label: t('dns.detour-none') }, ...outs.map((o) => ({ value: o.tag, label: o.tag }))], value: m.detour, onChange: (v) => (m.detour = v) }), t('dns.detour-hint')),
+            field(t('dns.resolver-for'), select({ options: [{ value: '', label: t('dns.resolver-auto') }, ...dnsTags.map((x) => ({ value: x, label: x }))], value: m.resolver, onChange: (v) => (m.resolver = v) }), hostNeedsResolver(m) ? t('dns.resolver-needed') : t('dns.resolver-for-hint')),
           ),
         );
         body.append(adv);

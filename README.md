@@ -104,4 +104,4 @@ Root actions go through a tiny polkit helper (`/usr/lib/singbox-gui/helper`) tha
 
 **Develop:** `npm test`, `node scripts/serve-mock.mjs` (browser preview with a mock backend), `./scripts/dev.sh` (real app with hot reload).
 
-MIT licensed.
+MIT licensed. The UI font is [Vazirmatn](https://github.com/rastikerdar/vazirmatn) (SIL OFL 1.1, `licenses/Vazirmatn-OFL.txt`), embedded in `src/frontend/css/fonts.css` so the app looks the same on every machine; regenerate it with `node scripts/vendor-fonts.mjs`.
