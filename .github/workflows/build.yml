@@ -1,0 +1,154 @@
+name: build
+
+# Everything is built on GitHub: nothing has to be installed on your computer.
+#   push / dispatch  -> tests + a .deb as a workflow artifact
+#   push of v* tag   -> the same, plus a GitHub Release with the .deb attached
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TINYJS_VERSION: v0.56.0
+  SING_BOX_VERSION: 1.14.3 # only used to validate generated configs in the tests
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Get sing-box (for the tests only, kept in a temp folder)
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/sb.tgz" \
+            "https://github.com/SagerNet/sing-box/releases/download/v${SING_BOX_VERSION}/sing-box-${SING_BOX_VERSION}-linux-amd64.tar.gz"
+          mkdir -p "$RUNNER_TEMP/sb"
+          tar -xzf "$RUNNER_TEMP/sb.tgz" -C "$RUNNER_TEMP/sb" --strip-components=1
+          echo "$RUNNER_TEMP/sb" >> "$GITHUB_PATH"
+
+      - name: sing-box version
+        run: sing-box version
+
+      - name: Lint
+        run: npx --yes eslint@9 src test scripts
+
+      - name: Shell syntax
+        run: |
+          for f in scripts/*.sh; do bash -n "$f"; done
+          for f in packaging/singbox-gui-helper packaging/singbox-gui.sh packaging/postinst packaging/postrm; do sh -n "$f"; done
+          xmllint --noout packaging/app.singboxgui.policy
+
+      - name: Unit and sing-box validation tests
+        run: npm test
+
+      - name: Helper tests as root
+        run: sudo -E env "PATH=$PATH" node --test test/helper.test.js
+
+      - name: UI end-to-end tests (Chromium, mock backend)
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+          PW_ROOT="$PWD" node test/e2e/ui.e2e.mjs
+
+  package:
+    name: Package (${{ matrix.arch }})
+    needs: test
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.arch == 'arm64' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 22.04 keeps the glibc requirement low (>= 2.35): runs on Ubuntu 22.04+ and Debian 12+
+          - { arch: amd64, runner: ubuntu-22.04 }
+          - { arch: arm64, runner: ubuntu-22.04-arm }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: The tag must match the app version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version="$(node -p "require('./tinyjs.json').version")"
+          test "v${version}" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} != tinyjs.json version ${version}"; exit 1; }
+
+      - name: Download TinyJS (pinned, checksum-verified, into ./.tinyjs)
+        run: scripts/install-tinyjs.sh
+
+      - name: Build the app
+        run: scripts/build.sh
+
+      - name: Backend smoke test on the txiki.js runtime
+        run: TJS="$PWD/.tinyjs/bin/tjs" npm run test:backend
+
+      - name: Build the .deb
+        run: scripts/build-deb.sh
+
+      - name: Install the package and start the app
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ./dist/singbox-gui_*.deb xvfb dbus-x11
+          dpkg -L singbox-gui
+          test -x /usr/lib/singbox-gui/helper
+          test -f /usr/share/polkit-1/actions/app.singboxgui.policy
+          export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 LIBGL_ALWAYS_SOFTWARE=1
+          # The app must stay up: `timeout` ends it after 15 s (exit 124). Anything else is a crash.
+          set +e
+          xvfb-run -a dbus-run-session -- timeout 15 singbox-gui > "$RUNNER_TEMP/app.log" 2>&1
+          code=$?
+          set -e
+          cat "$RUNNER_TEMP/app.log"
+          if grep -q "error while loading shared libraries" "$RUNNER_TEMP/app.log"; then echo "missing library"; exit 1; fi
+          test "$code" -eq 124 || { echo "the app exited early with code $code"; exit 1; }
+
+      - name: Checksums
+        run: cd dist && sha256sum singbox-gui_*.deb | tee SHA256SUMS-${{ matrix.arch }}.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: singbox-gui-${{ matrix.arch }}
+          path: |
+            dist/singbox-gui_*.deb
+            dist/SHA256SUMS-*.txt
+          if-no-files-found: error
+
+  release:
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: singbox-gui-*
+          merge-multiple: true
+          path: release
+
+      - name: List files
+        run: ls -la release
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.deb
+            release/SHA256SUMS-*.txt
+          generate_release_notes: true

@@ -1,0 +1,170 @@
+#!/bin/sh
+# Singbox GUI — privileged helper.
+#
+# Runs as root through `pkexec` (see app.singboxgui.policy). It is the ONLY
+# thing in the app that has root, and it only knows a handful of narrow jobs:
+#
+#   service <action> <unit>            start|stop|restart|reload|enable|disable|reset-failed
+#   read    <path>                     print a sing-box config file
+#   write   <path> <unit> <restart>    replace a config file with stdin (validated first)
+#   logs    <unit> <lines>             recent journal lines of the unit
+#   passwordless <on|off>              (un)install a polkit rule: no password prompt for this helper
+#
+# Everything the caller passes is validated; paths are limited to sing-box
+# config locations, units to plain service names.
+
+set -eu
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+umask 022
+
+die() { echo "singbox-gui-helper: $*" >&2; exit 2; }
+
+valid_unit() {
+  case "$1" in
+    '' | -* | *[!A-Za-z0-9@_.:-]*) return 1 ;;
+  esac
+  return 0
+}
+
+# Directories / files the unit itself is told to read (-c / -C of ExecStart).
+unit_config_args() {
+  systemctl show -p ExecStart --value -- "$1" 2>/dev/null |
+    tr ' ;' '\n\n' |
+    awk '
+      prev == "-c" || prev == "--config" || prev == "-C" || prev == "--config-directory" { print prev "\t" $0 }
+      { prev = $0 }
+    '
+}
+
+# A config path is allowed when it is an absolute *.json path, free of "..",
+# and lives under /etc/sing-box, /usr/local/etc/sing-box, or is exactly the
+# file / inside the directory the unit is configured with.
+allowed_config_path() {
+  p=$1
+  unit=$2
+  case "$p" in
+    /*.json) ;;
+    *) return 1 ;;
+  esac
+  case "$p" in
+    */../* | */./* | *'/..' | *'/.' | *//*) return 1 ;;
+  esac
+  case "$p" in
+    /etc/sing-box/* | /usr/local/etc/sing-box/*) return 0 ;;
+  esac
+  if valid_unit "$unit"; then
+    unit_config_args "$unit" | while IFS="$(printf '\t')" read -r flag val; do
+      case "$flag" in
+        -c | --config) [ "$p" = "$val" ] && echo yes ;;
+        -C | --config-directory) case "$p" in "${val%/}"/*) echo yes ;; esac ;;
+      esac
+    done | grep -q yes && return 0
+  fi
+  return 1
+}
+
+cmd=${1:-}
+[ -n "$cmd" ] || die "no command"
+shift
+
+case "$cmd" in
+  service)
+    [ $# -eq 2 ] || die "usage: service <action> <unit>"
+    action=$1
+    unit=$2
+    valid_unit "$unit" || die "invalid unit name"
+    case "$action" in
+      start | stop | restart | reload | enable | disable | reset-failed) ;;
+      *) die "action not allowed: $action" ;;
+    esac
+    exec systemctl "$action" -- "$unit"
+    ;;
+
+  read)
+    [ $# -ge 1 ] || die "usage: read <path> [unit]"
+    allowed_config_path "$1" "${2:-sing-box.service}" || die "path not allowed: $1"
+    exec cat -- "$1"
+    ;;
+
+  write)
+    [ $# -eq 3 ] || die "usage: write <path> <unit> <restart|keep>"
+    dest=$1
+    unit=$2
+    mode=$3
+    valid_unit "$unit" || die "invalid unit name"
+    allowed_config_path "$dest" "$unit" || die "path not allowed: $dest"
+    case "$mode" in restart | keep) ;; *) die "bad mode" ;; esac
+
+    tmp=$(mktemp /run/singbox-gui.XXXXXX)
+    trap 'rm -f "$tmp"' EXIT
+    cat >"$tmp"
+    [ -s "$tmp" ] || die "refusing to write an empty config"
+
+    # Validate as root, with the real binary, before touching anything.
+    if command -v sing-box >/dev/null 2>&1; then
+      if ! out=$(sing-box check -c "$tmp" 2>&1); then
+        echo "$out" >&2
+        exit 3
+      fi
+    fi
+
+    mkdir -p -- "$(dirname -- "$dest")"
+    if [ -e "$dest" ]; then
+      cp -p -- "$dest" "$dest.singbox-gui.bak"
+      # Keep inode, owner and mode of the existing file.
+      cat -- "$tmp" >"$dest"
+    else
+      install -m 0644 -- "$tmp" "$dest"
+    fi
+
+    if [ "$mode" = restart ]; then
+      if ! systemctl restart -- "$unit"; then
+        echo "service failed to restart" >&2
+        journalctl -u "$unit" -n 30 --no-pager -o cat 2>/dev/null >&2 || true
+        exit 4
+      fi
+    fi
+    ;;
+
+  logs)
+    [ $# -eq 2 ] || die "usage: logs <unit> <lines>"
+    valid_unit "$1" || die "invalid unit name"
+    case "$2" in '' | *[!0-9]*) die "bad line count" ;; esac
+    [ "$2" -le 2000 ] || die "too many lines"
+    exec journalctl -u "$1" -n "$2" --no-pager -o short-iso
+    ;;
+
+  passwordless)
+    [ $# -eq 1 ] || die "usage: passwordless <on|off>"
+    rule=/etc/polkit-1/rules.d/49-singbox-gui.rules
+    case "$1" in
+      on)
+        uid=${PKEXEC_UID:-}
+        [ -n "$uid" ] || die "must be started through pkexec"
+        user=$(id -nu "$uid") || die "unknown user"
+        case "$user" in '' | *[!A-Za-z0-9_.-]*) die "unsafe user name" ;; esac
+        [ "$uid" -ne 0 ] || die "refusing to do this for root"
+        mkdir -p /etc/polkit-1/rules.d
+        cat >"$rule" <<EOF
+// Installed by Singbox GUI: $user may run the Singbox GUI helper without a password.
+polkit.addRule(function(action, subject) {
+  if (subject.user == "$user" && subject.local && subject.active &&
+      (action.id == "app.singboxgui.helper" ||
+       (action.id == "org.freedesktop.policykit.exec" &&
+        action.lookup("program") == "/usr/lib/singbox-gui/helper"))) {
+    return polkit.Result.YES;
+  }
+});
+EOF
+        chmod 0644 "$rule"
+        ;;
+      off) rm -f -- "$rule" ;;
+      *) die "usage: passwordless <on|off>" ;;
+    esac
+    ;;
+
+  *)
+    die "unknown command: $cmd"
+    ;;
+esac

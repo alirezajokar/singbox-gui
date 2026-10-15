@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Singbox GUI
+Name[fa]=سینگ‌باکس GUI
+GenericName=sing-box manager
+GenericName[fa]=مدیریت sing-box
+Comment=Manage the sing-box service and its configuration
+Comment[fa]=مدیریت سرویس و کانفیگ sing-box
+Exec=singbox-gui
+Icon=singbox-gui
+Terminal=false
+Categories=Network;Utility;
+Keywords=sing-box;proxy;vpn;dns;routing;tun;
+StartupWMClass=io.github.alirezajokar.singbox-gui

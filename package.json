@@ -1,0 +1,15 @@
+{
+  "name": "singbox-gui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A small, friendly desktop app (TinyJS) to manage a sing-box service and its configuration.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "test:backend": "${TJS:-tjs} run test/backend.smoke.js",
+    "dev": "./scripts/dev.sh",
+    "build": "./scripts/build.sh",
+    "deb": "./scripts/build-deb.sh"
+  }
+}

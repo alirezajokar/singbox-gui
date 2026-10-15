@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+# Remove the optional "no password" polkit rule if the user had enabled it.
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+  rm -f /etc/polkit-1/rules.d/49-singbox-gui.rules
+  command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q /usr/share/applications || true
+  command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
+fi
+exit 0

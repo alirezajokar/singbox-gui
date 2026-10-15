@@ -1,0 +1,13 @@
+{
+  "name": "singbox-gui",
+  "title": "Singbox GUI",
+  "id": "io.github.alirezajokar.singbox-gui",
+  "version": "0.1.0",
+  "size": "1120x740",
+  "icon": "assets/icon.png",
+  "minTinyjsVersion": "0.50.0",
+  "activation": "regular",
+  "linux": {
+    "chrome": { "frame": true }
+  }
+}
