@@ -515,7 +515,37 @@ export function toast(message, kind = 'ok', detail, opts = {}) {
   );
   el.lastChild.classList.add('close');
   host.append(el);
-  if (kind !== 'error' && !action) setTimeout(() => el.remove(), 3600);
+  // Errors stay until dismissed. Everything else goes away by itself: a plain confirmation quickly, a
+  // toast with a button (Undo) after long enough to reach it. While the pointer or the keyboard is on it, the clock stops.
+  if (kind !== 'error') autoDismiss(el, action ? 8000 : 3600);
+}
+
+function autoDismiss(el, ms) {
+  let left = ms;
+  let since = 0;
+  let timer = null;
+  let pointer = false;
+  let focus = false;
+  const run = () => {
+    since = Date.now();
+    timer = setTimeout(() => el.remove(), left);
+  };
+  const update = () => {
+    if (pointer || focus) {
+      if (timer === null) return;
+      clearTimeout(timer);
+      timer = null;
+      left -= Date.now() - since;
+    } else if (timer === null) {
+      left = Math.max(left, 2000); // a moment to look again after letting go
+      run();
+    }
+  };
+  el.addEventListener('pointerenter', () => { pointer = true; update(); });
+  el.addEventListener('pointerleave', () => { pointer = false; update(); });
+  el.addEventListener('focusin', () => { focus = true; update(); });
+  el.addEventListener('focusout', () => { focus = false; update(); });
+  run();
 }
 
 export function notice({ kind = 'info', title, text, detail, actions }) {

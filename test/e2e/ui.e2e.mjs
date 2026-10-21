@@ -523,6 +523,34 @@ await scenario('errors stay until dismissed; confirmations fade', async (page, o
   assert.equal(await page.locator('.toast').count(), 0);
 });
 
+await scenario('the Undo toast goes away by itself, but waits while the pointer or focus is on it', async (page, open) => {
+  await page.clock.install();
+  await open('routing');
+  const del = page.locator('.item:nth-child(2) button[aria-label="Delete"]');
+  await del.click();
+  await page.click('.popconfirm button:has-text("Delete")');
+  assert.equal(await page.locator('.toast:has-text("Undo")').count(), 1, 'the Undo toast is shown');
+  await page.clock.fastForward(5000);
+  assert.equal(await page.locator('.toast:has-text("Undo")').count(), 1, 'still there after 5 s: long enough to reach it');
+  await page.clock.fastForward(4000);
+  assert.equal(await page.locator('.toast').count(), 0, 'gone by itself after about 8 s');
+  // hovering stops the clock
+  await page.click('.item:nth-child(2) button[aria-label="Delete"]');
+  await page.click('.popconfirm button:has-text("Delete")');
+  await page.hover('.toast button:has-text("Undo")');
+  await page.clock.fastForward(20000);
+  assert.equal(await page.locator('.toast:has-text("Undo")').count(), 1, 'kept while hovered');
+  await page.mouse.move(600, 400);
+  await page.clock.fastForward(1500);
+  assert.equal(await page.locator('.toast:has-text("Undo")').count(), 1, 'the rest of its time still runs after the pointer leaves');
+  await page.clock.fastForward(8000);
+  assert.equal(await page.locator('.toast').count(), 0, 'goes once that time is up');
+  // errors are never timed
+  await page.evaluate(async () => { (await import('/js/dom.js')).toast('boom', 'error'); });
+  await page.clock.fastForward(60000);
+  assert.equal(await page.locator('.toast.error').count(), 1, 'errors stay until dismissed');
+});
+
 await scenario('changing the theme does not animate every colour at once', async (page, open) => {
   await open('settings');
   // record whether the pause class ever appears (it is removed again after two frames, so sampling once would be a race)
