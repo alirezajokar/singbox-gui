@@ -6,7 +6,7 @@ import * as store from '../store.js';
 import { dnsServers, getRules, outboundChoices, renameTag, removeDnsServer, usages, ensureDns, ensureRoute } from '../config.js';
 import { DNS_TYPES, DEFAULT_PORTS, DNS_PRESETS, serverToModel, modelToServer, emptyServerModel, presetToModel, describeServer, needsServer, hasPath, hostNeedsResolver } from '../dns.js';
 import { ruleToModel, modelToRule } from '../rules.js';
-import { ruleRow, sortable, openRuleEditor, newRuleModel } from '../ui/rules-ui.js';
+import { ruleRow, sortable, openRuleEditor, newRuleModel, confirmRuleDelete } from '../ui/rules-ui.js';
 import { confirmDelete, deleteWithUndo } from '../ui/actions.js';
 import { clone, uniqueTag } from '../util.js';
 
@@ -232,11 +232,14 @@ export const dnsPage = {
             model: m, index: i, total: models.length, cfg, ctx: CTX,
             onToggle: (on) => { store.mutate((d) => { const r = getRules(d, 'dns')[i]; if (on) delete r.__off; else r.__off = true; }); build(); },
             onEdit: () => editRule(i),
-            onDelete: () => deleteWithUndo({
-              message: t('rule.deleted'),
-              remove: () => { let removed; store.mutate((d) => ([removed] = getRules(d, 'dns').splice(i, 1))); build(); return removed; },
-              restore: (rule) => { store.mutate((d) => getRules(d, 'dns').splice(i, 0, rule)); build(); },
-            }),
+            onDelete: async (anchor) => {
+              if (!(await confirmRuleDelete(anchor))) return;
+              deleteWithUndo({
+                message: t('rule.deleted'),
+                remove: () => { let removed; store.mutate((d) => ([removed] = getRules(d, 'dns').splice(i, 1))); build(); return removed; },
+                restore: (rule) => { store.mutate((d) => getRules(d, 'dns').splice(i, 0, rule)); build(); },
+              });
+            },
             onDuplicate: () => { store.mutate((d) => { const rs = getRules(d, 'dns'); rs.splice(i + 1, 0, clone(rs[i])); }); build(); },
             onUp: () => move(i, i - 1),
             onDown: () => move(i, i + 1),

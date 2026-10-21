@@ -5,7 +5,7 @@ import { t } from '../i18n.js';
 import * as store from '../store.js';
 import { getRules, outboundChoices, ensureRoute } from '../config.js';
 import { ruleToModel, modelToRule } from '../rules.js';
-import { ruleRow, sortable, openRuleEditor, newRuleModel, openTemplates, openRuleSets } from '../ui/rules-ui.js';
+import { ruleRow, sortable, openRuleEditor, newRuleModel, openTemplates, openRuleSets, confirmRuleDelete } from '../ui/rules-ui.js';
 import { deleteWithUndo } from '../ui/actions.js';
 import { clone } from '../util.js';
 
@@ -86,7 +86,8 @@ export const routing = {
               build();
             },
             onEdit: () => editRule(i),
-            onDelete: () =>
+            onDelete: async (anchor) => {
+              if (!(await confirmRuleDelete(anchor))) return;
               deleteWithUndo({
                 message: t('rule.deleted'),
                 remove: () => {
@@ -99,7 +100,8 @@ export const routing = {
                   store.mutate((d) => getRules(d, 'route').splice(i, 0, rule));
                   build();
                 },
-              }),
+              });
+            },
             onDuplicate: () => {
               store.mutate((d) => {
                 const rs = getRules(d, 'route');

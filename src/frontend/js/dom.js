@@ -412,7 +412,7 @@ export function modal({ title, body, footer, size = '', onClose, closable = true
     // only the top-most modal reacts
     if (overlay !== lastOverlay()) return;
     if (e.key === 'Escape' && closable) {
-      if (document.querySelector('.dd-pop')) return; // an open dropdown takes the key first
+      if (document.querySelector('.dd-pop, .popconfirm')) return; // an open dropdown or popconfirm takes the key first
       e.stopPropagation();
       close();
     } else if (e.key === 'Tab') {

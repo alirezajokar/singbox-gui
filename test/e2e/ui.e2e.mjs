@@ -170,15 +170,118 @@ await scenario('template adds the rule and its rule-set', async (page, open) => 
   assert.ok(cfg.route.rules.some((r) => (r.rule_set || []).includes('geosite-telegram')));
 });
 
-await scenario('deleting a rule is instant and can be undone', async (page, open) => {
+const centerX = (box) => box.x + box.width / 2;
+
+await scenario('deleting a rule asks on top of its delete button; confirming deletes, Undo restores', async (page, open) => {
   await open('routing');
   const n = await page.locator('.list .item').count();
-  await page.click('.item:nth-child(2) button[aria-label="Delete"]');
+  const del = page.locator('.item:nth-child(2) button[aria-label="Delete"]');
+  await del.click();
+  await page.waitForTimeout(250); // opening animation
+  const pc = page.locator('.popconfirm');
+  assert.equal(await pc.count(), 1, 'a popconfirm opens');
+  assert.equal(await page.locator('.modal').count(), 0, 'not a dialog');
+  assert.equal(await pc.getAttribute('role'), 'alertdialog');
+  assert.match(await pc.textContent(), /Delete this rule\?/);
+  assert.equal(await page.locator('.list .item').count(), n, 'nothing is deleted yet');
+  assert.ok(await page.locator('.item:nth-child(2)').evaluate((el) => el.classList.contains('confirming')), 'the row is marked');
+  // it sits on top of the button, with the arrow on the button
+  const b = await del.boundingBox();
+  const p = await pc.boundingBox();
+  assert.ok(p.y + p.height <= b.y, 'above the button');
+  const arrow = await page.locator('.popconfirm .pc-arrow').boundingBox();
+  assert.ok(Math.abs(centerX(arrow) - centerX(b)) < 3, 'arrow points at the button');
+  // the safe choice has the focus; Tab stays inside
+  assert.match(await page.evaluate(() => document.activeElement.textContent), /Cancel/);
+  await page.keyboard.press('Tab');
+  assert.match(await page.evaluate(() => document.activeElement.textContent), /Delete/);
+  await page.keyboard.press('Tab');
+  assert.match(await page.evaluate(() => document.activeElement.textContent), /Cancel/, 'Tab wraps inside');
+  // Cancel keeps the rule and returns focus to the button
+  await pc.locator('button:has-text("Cancel")').click();
+  assert.equal(await page.locator('.popconfirm').count(), 0);
+  assert.equal(await page.locator('.list .item').count(), n);
+  assert.ok(await del.evaluate((el) => el === document.activeElement), 'focus is back on the delete button');
+  assert.ok(!(await page.locator('.item:nth-child(2)').evaluate((el) => el.classList.contains('confirming'))), 'mark removed');
+  // Escape and a click elsewhere cancel too
+  await del.click();
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('.popconfirm').count(), 0);
+  await del.click();
+  await page.mouse.click(600, 20);
+  assert.equal(await page.locator('.popconfirm').count(), 0);
+  assert.equal(await page.locator('.list .item').count(), n);
+  // clicking the same button again toggles it
+  await del.click();
+  await del.click();
+  assert.equal(await page.locator('.popconfirm').count(), 0);
+  // confirm deletes; the Undo toast brings it back
+  await del.click();
+  await page.click('.popconfirm button:has-text("Delete")');
   assert.equal(await page.locator('.list .item').count(), n - 1);
   await page.click('.toast button:has-text("Undo")');
   assert.equal(await page.locator('.list .item').count(), n);
-  assert.equal(await page.locator('.toast').count(), 0, 'the undo toast goes away once used');
 });
+
+await scenario('popconfirm flips below when there is no room above, and follows a scroll', async (page, open) => {
+  await page.setViewportSize({ width: 1180, height: 520 });
+  await open('routing');
+  await page.waitForFunction(() => document.querySelectorAll('.list .item').length >= 8);
+  await page.waitForTimeout(300); // the page's own fade-in
+  // bring the first rule's button to the very top of the scrolling area (the title bar above it leaves no room for the box)
+  await page.evaluate(() => {
+    const view = document.querySelector('.view');
+    const r = document.querySelector('.item:nth-child(1) button[aria-label="Delete"]').getBoundingClientRect();
+    view.scrollTop += r.top - (view.getBoundingClientRect().top + 8);
+  });
+  const del = page.locator('.item:nth-child(1) button[aria-label="Delete"]');
+  await del.click();
+  await page.waitForTimeout(250);
+  const side = await page.locator('.popconfirm').getAttribute('data-side');
+  assert.equal(side, 'bottom', `opens below when there is no room above (was ${side}, button at ${JSON.stringify(await del.boundingBox())})`);
+  const b = await del.boundingBox();
+  const p = await page.locator('.popconfirm').boundingBox();
+  assert.ok(p.y >= b.y + b.height, 'below the button');
+  // a small scroll moves it along; scrolling the button out of sight cancels
+  await page.evaluate(() => { document.querySelector('.view').scrollTop += 6; });
+  await page.waitForTimeout(150);
+  const b2 = await del.boundingBox();
+  const p2 = await page.locator('.popconfirm').boundingBox();
+  assert.ok(Math.abs(p2.y - (b2.y + b2.height + 10)) < 3, 'moved with the button');
+  await page.evaluate(() => { document.querySelector('.view').scrollTop += 800; });
+  await page.waitForFunction(() => !document.querySelector('.popconfirm'), null, { timeout: 2000 });
+});
+
+await scenario('DNS rules ask the same way', async (page, open) => {
+  await open('dns');
+  const rules = page.locator('.card:has(h2:has-text("DNS rules")) .item');
+  const n = await rules.count();
+  await rules.first().locator('button[aria-label="Delete"]').click();
+  assert.equal(await page.locator('.popconfirm').count(), 1);
+  assert.equal(await rules.count(), n);
+  await page.click('.popconfirm button:has-text("Delete")');
+  assert.equal(await rules.count(), n - 1);
+});
+
+await scenario('persian: the popconfirm is in Persian, sits on the button and stays on screen', async (page, open) => {
+  await open('routing');
+  const del = page.locator('.item:nth-child(4) button[aria-label="حذف"]');
+  await del.click();
+  await page.waitForTimeout(250);
+  const pc = page.locator('.popconfirm');
+  assert.match(await pc.textContent(), /این قانون حذف شود/);
+  const b = await del.boundingBox();
+  const p = await pc.boundingBox();
+  assert.ok(p.x >= 0 && p.x + p.width <= 1180, 'inside the window');
+  const arrow = await page.locator('.popconfirm .pc-arrow').boundingBox();
+  assert.ok(Math.abs(centerX(arrow) - centerX(b)) < 3, 'arrow points at the button');
+  // in RTL the confirming button is on the left, Cancel on its right
+  const cancel = await pc.locator('button:has-text("انصراف")').boundingBox();
+  const ok = await pc.locator('button:has-text("حذف")').boundingBox();
+  assert.ok(ok.x < cancel.x, 'Delete sits at the end (left) in RTL');
+  await pc.locator('button:has-text("حذف")').click();
+  assert.equal(await page.locator('.list .item').count(), 7);
+}, { lang: 'fa' });
 
 await scenario('paste a mixed list into a rule', async (page, open) => {
   await open('routing');
@@ -422,9 +525,14 @@ await scenario('errors stay until dismissed; confirmations fade', async (page, o
 
 await scenario('changing the theme does not animate every colour at once', async (page, open) => {
   await open('settings');
+  // record whether the pause class ever appears (it is removed again after two frames, so sampling once would be a race)
+  await page.evaluate(() => {
+    window.__paused = false;
+    new MutationObserver(() => { if (document.documentElement.classList.contains('no-transitions')) window.__paused = true; }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  });
   await page.click('.segmented button:has-text("Light")');
-  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('no-transitions')), true, 'transitions are paused during the swap');
-  await page.waitForFunction(() => !document.documentElement.classList.contains('no-transitions'));
+  await page.waitForFunction(() => document.documentElement.dataset.theme === 'light' && !document.documentElement.classList.contains('no-transitions'));
+  assert.equal(await page.evaluate(() => window.__paused), true, 'transitions are paused during the swap');
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
 });
 

@@ -201,6 +201,28 @@ input.ltr, textarea.ltr, .input.ltr { direction: ltr; text-align: left; }
 .spin { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ---------------------------------------------------------------- popconfirm */
+.popconfirm {
+  position: fixed; z-index: 90; min-width: 230px; max-width: min(320px, calc(100vw - 16px)); padding: 12px 14px;
+  background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow);
+  animation: pc-in .14s var(--ease); outline: none;
+}
+.popconfirm[data-side="bottom"] { --pc-from: -4px; }
+.popconfirm .pc-body { display: flex; align-items: flex-start; gap: 10px; }
+.popconfirm .pc-icon { color: var(--warn); margin-top: 2px; }
+.popconfirm .pc-title { font-weight: 600; color: var(--text); }
+.popconfirm .pc-msg { color: var(--text-2); font-size: 12.5px; margin-top: 2px; }
+.popconfirm .pc-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.popconfirm .pc-arrow {
+  position: absolute; left: var(--arrow-x, 50%); width: 10px; height: 10px; margin-left: -5px;
+  background: var(--surface-2); border: 1px solid var(--border-strong); transform: rotate(45deg);
+}
+.popconfirm[data-side="top"] .pc-arrow { bottom: -6px; border-top: 0; border-left: 0; }
+.popconfirm[data-side="bottom"] .pc-arrow { top: -6px; border-bottom: 0; border-right: 0; }
+@keyframes pc-in { from { opacity: 0; transform: translateY(var(--pc-from, 4px)) scale(.97); } }
+.item.confirming, .item.confirming:hover { background: var(--tint-danger); }
+.item.confirming .actions { opacity: 1; }
+
 /* ---------------------------------------------------------------- forms */
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .field > label, .label { font-size: 12.5px; color: var(--text-2); font-weight: 600; }

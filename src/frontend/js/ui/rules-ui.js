@@ -14,6 +14,7 @@ import {
 import { outboundChoices, dnsServers, ruleSets, inbounds, ensureCacheFile } from '../config.js';
 import { ROUTE_TEMPLATES, RULE_SET_CATALOG, remoteRuleSet, addRuleSet, ruleSetFromTag } from '../presets.js';
 import { clone } from '../util.js';
+import { popconfirm } from '../popconfirm.js';
 
 // ---------------------------------------------------------------------------
 // shared bits
@@ -74,6 +75,11 @@ export function ruleSummary(model, cfg, ctx) {
   return h('div', { class: 'conds' }, when, then);
 }
 
+/** Ask before a rule is deleted: a small question on top of the delete button, with the row marked. */
+export function confirmRuleDelete(anchor) {
+  return popconfirm({ anchor, title: t('rule.delete-title'), confirmLabel: t('common.delete'), mark: anchor.closest('.item') });
+}
+
 /** One row of a rule list. */
 export function ruleRow({ model, index, total, cfg, ctx, onToggle, onEdit, onDelete, onDuplicate, onUp, onDown }) {
   const row = h(
@@ -96,7 +102,7 @@ export function ruleRow({ model, index, total, cfg, ctx, onToggle, onEdit, onDel
       button({ iconOnly: true, icon: 'down', variant: 'ghost', size: 'sm', label: t('rule.down'), disabled: index === total - 1, onClick: onDown }),
       button({ iconOnly: true, icon: 'edit', variant: 'ghost', size: 'sm', label: t('common.edit'), onClick: onEdit }),
       button({ iconOnly: true, icon: 'copy', variant: 'ghost', size: 'sm', label: t('common.duplicate'), onClick: onDuplicate }),
-      button({ iconOnly: true, icon: 'trash', variant: 'ghost', size: 'sm', label: t('common.delete'), onClick: onDelete }),
+      button({ iconOnly: true, icon: 'trash', variant: 'ghost', size: 'sm', label: t('common.delete'), onClick: (e) => onDelete(e.currentTarget) }),
     ),
   );
   return row;
