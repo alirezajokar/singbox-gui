@@ -2,7 +2,7 @@
   "name": "singbox-gui",
   "title": "Singbox GUI",
   "id": "io.github.alirezajokar.singbox-gui",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "size": "1120x740",
   "icon": "assets/icon.png",
   "minTinyjsVersion": "0.50.0",
